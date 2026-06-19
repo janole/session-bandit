@@ -7,7 +7,9 @@
   "bin": {
     "session-bandit": "./dist/bin.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -15,6 +17,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@session-bandit/core": "workspace:*"
+    "@session-bandit/core": "workspace:*",
+    "commander": "^15.0.0"
   }
 }
