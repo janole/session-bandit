@@ -217,7 +217,17 @@ packages/
     test/                        22 tests
 docs/
   prd.md                         product requirements document
+  adapters.md                    how to add an agent / adapt to format drift
+  format-claude.md               Claude Code on-disk format reference
+  format-codex.md                Codex on-disk format reference (3 historical formats)
 ```
+
+## Extending
+
+See [`docs/adapters.md`](docs/adapters.md) for how to add a new agent adapter
+or adapt an existing one when a provider changes its on-disk format. Per-agent
+format details live in [`docs/format-claude.md`](docs/format-claude.md) and
+[`docs/format-codex.md`](docs/format-codex.md).
 
 ## License
 
