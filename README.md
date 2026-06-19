@@ -183,6 +183,11 @@ pnpm install          # install deps
 pnpm -r build         # build both packages
 pnpm -r typecheck     # type-check (strict mode)
 pnpm -r test          # run all tests (73 tests)
+
+# Run the CLI from source (no build needed, uses tsx):
+pnpm dev list --pretty
+pnpm dev show <sessionId>
+pnpm dev search "query" --pretty
 ```
 
 ### Project structure
