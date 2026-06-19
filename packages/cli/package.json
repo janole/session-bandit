@@ -1,0 +1,20 @@
+{
+  "name": "session-bandit",
+  "version": "0.0.0",
+  "description": "CLI to search, browse, and extract information from your coding agent sessions.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "session-bandit": "./dist/bin.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@session-bandit/core": "workspace:*"
+  }
+}
