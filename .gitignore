@@ -1,5 +1,8 @@
-node_modules
-dist
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+coverage/
 .env*.local
 .playwright-mcp
 **/.*.swp
