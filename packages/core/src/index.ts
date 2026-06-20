@@ -32,6 +32,14 @@ export {
   type DigestKeyTurns,
   type DigestToolUsage,
 } from "./digest.js";
+export {
+  diagnoseAll,
+  type DoctorReport,
+  type AgentDoctorReport,
+  type CodexDoctorDetails,
+  type ClaudeDoctorDetails,
+} from "./diagnose.js";
+export { CODEX_INJECTED_MARKERS } from "./adapters/codex.js";
 
 /**
  * Expand a leading `~` to the user's home directory. Leaves other paths

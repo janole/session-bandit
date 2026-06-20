@@ -4,6 +4,10 @@ import {
   computeSubstance,
   type SessionDigest,
   type ImportanceTier,
+  type DoctorReport,
+  type AgentDoctorReport,
+  type CodexDoctorDetails,
+  type ClaudeDoctorDetails,
 } from "@session-bandit/core";
 
 /** A compact session summary for `list` output. */
@@ -352,6 +356,88 @@ export function parseTier(arg: string): ImportanceTier | null {
     "heavy",
   ];
   return tiers.includes(arg as ImportanceTier) ? (arg as ImportanceTier) : null;
+}
+
+// ---- utils ------------------------------------------------------------------
+
+/** Print a doctor report as JSON. */
+export function printDoctorJson(report: DoctorReport): void {
+  console.log(JSON.stringify(report));
+}
+
+/** Print a doctor report in a human-readable layout. */
+export function printDoctorPretty(report: DoctorReport): void {
+  console.log("Session Bandit Doctor — parsing health check");
+  console.log("=".repeat(50));
+  console.log("");
+  console.log(
+    `Total: ${report.totals.files} files · ${report.totals.sessions} sessions · ${report.totals.emptySessions} empty · ${report.totals.skippedCompressed} compressed (skipped)`,
+  );
+  console.log("");
+
+  for (const agent of report.agents) {
+    printAgentReport(agent);
+  }
+}
+
+function printAgentReport(a: AgentDoctorReport): void {
+  console.log(`── ${a.agent} ──────────────────────────────`);
+  console.log(`  Root:        ${a.root}`);
+  console.log(`  Files:       ${a.files}`);
+  console.log(`  Sessions:    ${a.sessions}`);
+  console.log(`  Empty:       ${a.emptySessions}${a.emptySessions > 0 ? " ⚠" : ""}`);
+  if (a.skippedCompressed > 0) {
+    console.log(`  Compressed:  ${a.skippedCompressed} .jsonl.zst (not supported, skipped)`);
+  }
+
+  if (a.details && a.agent === "codex") {
+    const d = a.details as CodexDoctorDetails;
+    console.log("");
+    console.log("  Format distribution:");
+    console.log(`    legacy .json:      ${d.formatDistribution.legacyJson}`);
+    console.log(`    flat .jsonl:       ${d.formatDistribution.flatJsonl}`);
+    console.log(`    envelope .jsonl:   ${d.formatDistribution.envelopeJsonl}`);
+    if (d.formatDistribution.unrecognized > 0) {
+      console.log(`    unrecognized:      ${d.formatDistribution.unrecognized} ⚠`);
+    }
+
+    console.log("");
+    console.log("  First user-message markers (injection detection):");
+    const m = d.firstUserMarkers;
+    console.log(`    # AGENTS.md instructions for  ${m.agentsMd}`);
+    console.log(`    <environment_context>         ${m.envContext}`);
+    console.log(`    <user_action>                 ${m.userAction}`);
+    console.log(`    plain task (no marker)         ${m.plainTask}${m.plainTask > 0 ? " ⚠" : ""}`);
+    console.log(`    ───────────────────────────── ${m.total} total`);
+
+    const envTypes = Object.entries(d.unrecognizedEnvelopeTypes);
+    if (envTypes.length > 0) {
+      console.log("");
+      console.log("  ⚠ Unrecognized envelope types:");
+      for (const [type, count] of envTypes) {
+        console.log(`    ${count}× ${type}`);
+      }
+    }
+
+    const itemTypes = Object.entries(d.unrecognizedItemTypes);
+    if (itemTypes.length > 0) {
+      console.log("");
+      console.log("  ⚠ Unrecognized item types:");
+      for (const [type, count] of itemTypes) {
+        console.log(`    ${count}× ${type}`);
+      }
+    }
+  }
+
+  if (a.details && a.agent === "claude") {
+    const d = a.details as ClaudeDoctorDetails;
+    if (d.unmatchedToolResults > 0) {
+      console.log("");
+      console.log(`  ⚠ Unmatched tool results (no matching tool_use id): ${d.unmatchedToolResults}`);
+    }
+  }
+
+  console.log("");
 }
 
 // ---- utils ------------------------------------------------------------------

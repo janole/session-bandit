@@ -108,6 +108,30 @@ all three formats feed into.
 
 Text is extracted from `input_text` / `output_text` blocks and concatenated.
 
+#### Injected `user`-role messages (important)
+
+Codex also injects machine-generated instruction blocks **as `user`-role
+messages** — these are NOT real user input. They always appear as the first
+user message(s) in a session, before the actual task. The adapter detects and
+skips them, consistent with the `developer`/`system` skip. Three markers:
+
+| marker (first content block starts with) | what it is |
+|---|---|
+| `# AGENTS.md instructions for <path>` | The project's AGENTS.md content, wrapped in `<INSTRUCTIONS>` tags (followed by a second `<environment_context>` block) |
+| `<environment_context>` | cwd, shell, date, timezone, filesystem info — injected when there's no AGENTS.md |
+| `<user_action>` | UI-generated actions (e.g. review-task selections) |
+
+Without this detection, the digest's `keyTurns.goal` would pick up the
+AGENTS.md instructions instead of the real task. The markers are exported as
+`CODEX_INJECTED_MARKERS` so the `doctor` command can verify detection rates.
+
+> **Checking your own Codex logs.** This pattern was verified against ~1000
+> real sessions on one system (codex v0.128–v0.140, 2025-04 to 2026-06).
+> Codex versions or platforms may differ. Run `session-bandit doctor --agent
+> codex --pretty` — it reports how many first-user-messages matched each
+> marker. If you see a non-zero `plain task` count, the injection pattern has
+> drifted and the adapter may need new markers.
+
 ### `reasoning`
 
 ```ts

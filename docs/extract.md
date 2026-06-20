@@ -286,13 +286,14 @@ sessions):
   session correctly scores `trivial` by activity — validating the open question
   that *substance ≠ value* (it has a real question but no work done).
 
-**Refinement found during validation (not yet fixed):** in Codex sessions the
-first `user`-role message is often the injected AGENTS.md / permissions
-instructions, so `keyTurns.goal` picks up the instructions rather than the
-real task. The Codex adapter emits these as `user` messages (it only skips
-`developer`/`system` roles). A follow-up should either skip instruction-shaped
-user turns in the digest, or have the adapter tag them. Tracked as a v2 polish
-item, not a blocker.
+**Fixed during validation:** in Codex sessions the first `user`-role
+message is the injected AGENTS.md / permissions instructions, so
+`keyTurns.goal` would pick up the instructions rather than the real task. The
+Codex adapter now skips `user`-role messages whose first content block starts
+with `# AGENTS.md instructions for`, `<environment_context>`, or
+`<user_action>` — consistent with the existing `developer`/`system` skip. The
+`doctor` command verifies detection rates (see `docs/format-codex.md` and
+decision #17 in `docs/decisions.md`).
 
 ## Build order (proposed)
 

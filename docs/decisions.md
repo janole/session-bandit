@@ -285,3 +285,55 @@ type change, not a re-parse.
 
 **Consequences.** Branch info is parsed and discarded today. Available on
 request for a future "group by branch" view.
+
+### 17. Skip injected Codex `user`-role instruction blocks
+
+**Decision.** The Codex adapter skips `user`-role messages whose first
+content block starts with `# AGENTS.md instructions for`,
+`<environment_context>`, or `<user_action>` — machine-generated instruction/
+context blocks that wear a `user` label but aren't real user input.
+
+**Context.** Codex injects AGENTS.md content and environment metadata as the
+first `user`-role message(s) in every session, before the actual task. Without
+skipping them, the digest's `keyTurns.goal` (which picks the first non-empty
+user message) would surface the AGENTS.md instructions instead of the task.
+
+**Rationale.** These are the same category as the already-skipped
+`developer`/`system` messages — injected instructions that happen to wear a
+`user` role label. The detection markers are consistent across 955 real
+envelope-format sessions (916 AGENTS.md, 38 environment_context, 1 user_action,
+0 unmatched). The markers are XML-like angle-bracket tags or a fixed prose
+header that a human would never type.
+
+**Consequences.** The first user message in the normalized transcript is the
+real task. The markers are exported as `CODEX_INJECTED_MARKERS` so the
+`doctor` command can verify detection rates on other systems. If Codex
+introduces new injection shapes, `doctor` will report them as `plain task`
+(non-zero count), flagging the drift.
+
+### 18. `doctor` command — observable parsing health
+
+**Decision.** Session Bandit ships a `doctor` command that independently
+scans raw session files and reports parsing health: format distribution,
+first-user-message injection-marker match rates, unrecognized envelope/item
+types, empty sessions, and skipped compressed files.
+
+**Context.** The adapters follow a "skip-don't-throw" philosophy —
+unrecognized lines and item types are silently skipped so one bad file never
+aborts a scan. This is resilient but invisible: when format drifts, nobody
+knows. The doctor was prompted by the discovery that the Codex adapter was
+silently skipping 3 item types (`ghost_snapshot`, `tool_search_call`,
+`tool_search_output`) that we didn't know about.
+
+**Rationale.** The doctor turns silent resilience into observable signal. It
+does its own raw file analysis to cross-check the adapter's assumptions — if
+the adapter has a bug in format detection, the doctor can catch it because it
+has independent logic. The doctor is a diagnostic tool, not a required step;
+it adds no runtime cost to normal operations.
+
+**Consequences.** Users can verify parsing health on their own systems
+(important because Codex versions and platforms may differ). Adapter authors
+get a format-drift detector. The doctor is extensible per-agent via the
+`AgentDoctorReport` details field. Currently implemented for Codex (format
+distribution, injection markers, unrecognized types) and Claude (unmatched
+tool results).

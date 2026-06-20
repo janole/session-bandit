@@ -148,6 +148,23 @@ describe("codexAdapter.parse — modern envelope .jsonl", () => {
   it("does not leak developer (permissions) messages into the transcript", () => {
     expect(session.messages.some((m) => m.text.includes("permissions instructions"))).toBe(false);
   });
+
+  it("skips injected AGENTS.md + environment_context user messages", () => {
+    // The fixture includes an injected user message with:
+    //   block[0]: "# AGENTS.md instructions for /Users/ole/projekte/demo\n\n<INSTRUCTIONS>..."
+    //   block[1]: "<environment_context>..."
+    // This must NOT appear in the transcript — it's a machine-generated
+    // instruction block, not a real user task.
+    expect(session.messages.some((m) => m.text.includes("# AGENTS.md instructions for"))).toBe(false);
+    expect(session.messages.some((m) => m.text.includes("<environment_context>"))).toBe(false);
+    expect(session.messages.some((m) => m.text.includes("<INSTRUCTIONS>"))).toBe(false);
+  });
+
+  it("picks up the real task as the first user message, not the AGENTS.md injection", () => {
+    const firstUser = session.messages.find((m) => m.role === "user");
+    expect(firstUser).toBeTruthy();
+    expect(firstUser!.text).toBe("Show me what files changed in the last commit.");
+  });
 });
 
 // ---- flat .jsonl format (format B) -----------------------------------------

@@ -103,6 +103,40 @@ function messageText(content: ContentBlock[] | undefined): string {
     .join("\n");
 }
 
+/**
+ * Markers for Codex-injected `user`-role messages — machine-generated blocks
+ * that wear a `user` label but are not real user input:
+ *  - `# AGENTS.md instructions for <path>` — the project's AGENTS.md content,
+ *    wrapped in `<INSTRUCTIONS>` tags
+ *  - `<environment_context>` — cwd, shell, date, timezone, filesystem info
+ *  - `<user_action>` — UI-generated actions (e.g. review-task selections)
+ *
+ * These are always the first user-role message(s) in a session, injected by
+ * the Codex runtime before the real task. A human would never type these
+ * angle-bracket XML tags or the fixed `# AGENTS.md instructions for` header.
+ *
+ * Exported so the `doctor` command can verify detection rates on real logs.
+ */
+export const CODEX_INJECTED_MARKERS = [
+  "# AGENTS.md instructions for",
+  "<environment_context>",
+  "<user_action>",
+] as const;
+
+/**
+ * Detect whether a user-role message is a Codex-injected instruction/context
+ * block (not a real user task). Checks if any content block starts with one of
+ * the known injection markers. Skipped from the normalized model, consistent
+ * with developer/system skips.
+ */
+function isInjectedUserMessage(content: ContentBlock[] | undefined): boolean {
+  if (!Array.isArray(content)) return false;
+  return content.some((b) => {
+    const text = (b.text ?? "").trimStart();
+    return CODEX_INJECTED_MARKERS.some((marker) => text.startsWith(marker));
+  });
+}
+
 /** Build a full tool name from a function_call's namespace + name. */
 function fullToolName(name: string | undefined, namespace: string | undefined): string {
   if (namespace && name) return `${namespace}${name}`;
@@ -146,6 +180,11 @@ function processItem(item: Item, ts: string | null, ctx: ParseContext): void {
   if (type === "message") {
     const role = item.role;
     if (role === "user") {
+      // Skip injected AGENTS.md / environment_context / user_action blocks.
+      // These wear a `user` role label but are machine-generated instructions,
+      // not real user input. Without this, the digest's `keyTurns.goal` would
+      // pick up the AGENTS.md instructions instead of the actual task.
+      if (isInjectedUserMessage(item.content)) return;
       ctx.messages.push({
         role: "user",
         text: messageText(item.content),

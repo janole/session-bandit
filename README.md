@@ -16,6 +16,9 @@ ever done with every agent.
   calls, inputs, outputs, and status indicators.
 - **Full-text search** across all session messages, with agent and project
   filters.
+- **Parsing health check** — `doctor` command validates that Session Bandit's
+  parsing assumptions match your real session files (format drift, injection
+  markers, unrecognized types, silent skips).
 - **Works as a library too** — `@session-bandit/core` exposes a programmatic
   API for indexing and querying sessions from your own code.
 
@@ -201,12 +204,13 @@ handles all three transparently.
 pnpm install          # install deps
 pnpm -r build         # build both packages
 pnpm -r typecheck     # type-check (strict mode)
-pnpm -r test          # run all tests (73 tests)
+pnpm -r test          # run all tests (139 tests)
 
 # Run the CLI from source (no build needed, uses tsx):
 pnpm dev list --pretty
 pnpm dev show <sessionId>
 pnpm dev search "query" --pretty
+pnpm dev doctor --pretty
 ```
 
 ### Project structure
@@ -219,10 +223,11 @@ packages/
       adapter.ts                 Adapter interface
       index.ts                   indexSessions() + exports
       jsonl.ts                   JSONL reader
+      diagnose.ts               doctor diagnostics (format drift, injection markers)
       adapters/
         claude.ts                Claude Code adapter
         codex.ts                 Codex adapter (3 formats)
-    test/                        fixtures + 51 tests
+    test/                        fixtures + 91 tests
   cli/                           session-bandit — CLI
     src/
       bin.ts                     entry point
@@ -233,7 +238,9 @@ packages/
         list.ts                  list command
         show.ts                  show command
         search.ts                search command
-    test/                        22 tests
+        extract.ts               extract command
+        doctor.ts                doctor command (parsing health)
+    test/                        48 tests
 docs/
   prd.md                         product requirements document
   extract.md                     session extracts & digest design (primary v2 feature)
@@ -253,11 +260,23 @@ structural choices is in [`docs/decisions.md`](docs/decisions.md).
 
 ## Roadmap
 
-The **primary next feature** is session extracts: turning a session into a
-reusable handoff or memory note via a structured digest + an offline
-importance/substance heuristic. Session Bandit stays offline and emits the
-digest; the consuming agent's LLM does the synthesis. Design in
-[`docs/extract.md`](docs/extract.md).
+**Done:**
+- **Session extracts** — the primary v2 feature. `extract` computes a
+  structured digest (substance score, files touched, commands, errors, key
+  turns) and can emit a ready-to-send synthesis prompt. See
+  [`docs/extract.md`](docs/extract.md).
+- **`doctor` command** — parsing health check that validates adapter
+  assumptions against real files (format drift, injection markers,
+  unrecognized types).
+
+**Next:**
+- **Skill definition** (separate repo) that calls `session-bandit extract
+  --prompt <kind>` and feeds the result to an LLM to write handoffs/memories
+  into a doc store.
+- **Gemini adapter** — the adapter guide uses Gemini as its worked example;
+  implementing it would dogfood the guide and round out the big three agents.
+- **Usage tier** — read Claude's `~/.claude/stats-cache.json` for offline
+  token/cost estimates. Codex `token_count` events already cleanly skipped.
 
 ## License
 

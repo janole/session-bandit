@@ -4,17 +4,20 @@ import { makeListCommand } from "./commands/list.js";
 import { makeShowCommand } from "./commands/show.js";
 import { makeSearchCommand } from "./commands/search.js";
 import { makeExtractCommand } from "./commands/extract.js";
+import { makeDoctorCommand } from "./commands/doctor.js";
 
 // Re-export core for programmatic use.
 export {
   indexSessions,
   claudeAdapter,
   codexAdapter,
+  diagnoseAll,
   type AdapterConfig,
   type Session,
   type Message,
   type ToolCall,
   type AgentName,
+  type DoctorReport,
 } from "@session-bandit/core";
 export { scanAll, filterSessions, sortByRecent, sortByImportance, filterByMinImportance, type ScanFn } from "./scan.js";
 
@@ -34,6 +37,7 @@ export function createProgram(): Command {
   program.addCommand(makeShowCommand(scanAll));
   program.addCommand(makeSearchCommand(scanAll));
   program.addCommand(makeExtractCommand(scanAll));
+  program.addCommand(makeDoctorCommand());
 
   return program;
 }
