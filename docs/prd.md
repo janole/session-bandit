@@ -1,6 +1,6 @@
 # Session Bandit — Product Requirements Document
 
-Status: **Draft** · Last updated: 2026-06-19
+Status: **Draft** · Last updated: 2026-06-20
 
 ## Purpose
 
@@ -12,6 +12,20 @@ The core insight: every major coding agent writes its full session history to
 disk as JSONL. There is no API to call and no auth to manage for search and
 extract — it's a local-file indexing problem. That makes the core of Session
 Bandit cheap, offline, and fast.
+
+## Primary feature: session extracts (v2)
+
+Search/browse (v1) is the foundation. The **payoff** is extracts: turning a
+session into a reusable handoff, memory note, or "what happened here" summary
+that answers what was done, how substantial it was, and what files were
+touched. This is what connects Session Bandit to the botbandit memory system.
+
+**Session Bandit stays offline.** It computes a structured **digest**
+(substance/importance score, files touched, commands + outcomes, errors, key
+turns) from the normalized model — no LLM call. The consuming agent's LLM does
+the natural-language synthesis, fed the digest via a skill. Full design,
+digest shape, and the grounded importance heuristic live in
+[`docs/extract.md`](extract.md).
 
 ## Out of scope for v1
 
@@ -57,13 +71,16 @@ Commands:
 
 ```
 session-bandit scan                          # build the in-memory index (implicit; run on every invocation)
-session-bandit list [--agent <name>] [--project <path>]
+session-bandit list [--agent <name>] [--project <path>] [--sort importance] [--min-importance <tier>]
 session-bandit show <sessionId>
 session-bandit search <query> [--agent] [--project]
+session-bandit extract <sessionId> [--prompt handoff|memory] [--full] [--pretty]
 ```
 
 `list` defaults to JSON lines; `--pretty` prints a table. `show` prints the
 normalized transcript. `search` does full-text search over session content.
+`extract` emits a structured **digest** (see [`extract.md`](extract.md)) for
+LLM ingestion; `--prompt` wraps it in a ready-to-send synthesis prompt.
 
 ## Normalized session model
 

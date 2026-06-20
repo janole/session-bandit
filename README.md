@@ -217,6 +217,7 @@ packages/
     test/                        22 tests
 docs/
   prd.md                         product requirements document
+  extract.md                     session extracts & digest design (primary v2 feature)
   decisions.md                   decision log (the "why" behind the structure)
   adapters.md                    how to add an agent / adapt to format drift
   format-claude.md               Claude Code on-disk format reference
@@ -230,6 +231,14 @@ or adapt an existing one when a provider changes its on-disk format. Per-agent
 format details live in [`docs/format-claude.md`](docs/format-claude.md) and
 [`docs/format-codex.md`](docs/format-codex.md). The rationale behind the
 structural choices is in [`docs/decisions.md`](docs/decisions.md).
+
+## Roadmap
+
+The **primary next feature** is session extracts: turning a session into a
+reusable handoff or memory note via a structured digest + an offline
+importance/substance heuristic. Session Bandit stays offline and emits the
+digest; the consuming agent's LLM does the synthesis. Design in
+[`docs/extract.md`](docs/extract.md).
 
 ## License
 
