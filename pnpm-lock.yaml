@@ -30,12 +30,13 @@ importers:
 
   packages/cli:
     dependencies:
-      '@session-bandit/core':
-        specifier: workspace:*
-        version: link:../core
       commander:
         specifier: ^15.0.0
         version: 15.0.0
+    devDependencies:
+      '@session-bandit/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/core: {}
 

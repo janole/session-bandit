@@ -1,15 +1,35 @@
 {
   "name": "session-bandit",
-  "version": "0.0.0",
-  "description": "CLI to search, browse, and extract information from your coding agent sessions.",
+  "version": "0.1.0",
+  "description": "Search, browse, and extract information from your coding agent sessions (Claude Code, Codex).",
   "type": "module",
   "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "bin": {
     "session-bandit": "./dist/bin.js"
   },
   "files": [
     "dist"
   ],
+  "keywords": [
+    "cli",
+    "coding-agent",
+    "claude-code",
+    "codex",
+    "session",
+    "transcript",
+    "handoff",
+    "memory"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/janole/session-bandit.git"
+  },
+  "homepage": "https://github.com/janole/session-bandit",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -17,7 +37,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@session-bandit/core": "workspace:*",
     "commander": "^15.0.0"
+  },
+  "devDependencies": {
+    "@session-bandit/core": "workspace:*"
   }
 }

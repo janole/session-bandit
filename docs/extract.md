@@ -309,4 +309,8 @@ decision #17 in `docs/decisions.md`).
 5. ✅ Validate against real sessions: spot-check that the heavy/light sessions
    from the recon land in the expected tiers, and that file extraction matches
    what `show` reveals. (See "Validation" above.)
-6. ⏳ Skill definition (separate from this repo) consuming `extract`.
+6. ✅ Skill definition — lives in the repo at `skill/SKILL.md`. Installable
+   via the Codex skill-installer from GitHub. Teaches the agent to use
+   `session-bandit extract --prompt handoff|memory` and synthesize a note.
+   CLI bundles core (`noExternal`) so `npm install -g session-bandit` works
+   without a workspace dependency (decision #19).

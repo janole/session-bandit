@@ -337,3 +337,30 @@ get a format-drift detector. The doctor is extensible per-agent via the
 `AgentDoctorReport` details field. Currently implemented for Codex (format
 distribution, injection markers, unrecognized types) and Claude (unmatched
 tool results).
+
+### 19. Skill ships in the repo + CLI bundles core for global install
+
+**Decision.** The Codex agent skill lives in the repo at `skill/SKILL.md`,
+installable via the Codex skill-installer from GitHub. The CLI bundles
+`@session-bandit/core` into its output (`noExternal` in tsup) so it's
+self-contained and installable via `npm install -g session-bandit` without a
+workspace dependency.
+
+**Context.** The skill is the final step (step 13) that connects Session
+Bandit to a coding agent: it teaches the agent to use `session-bandit extract
+--prompt handoff|memory` and synthesize a handoff/memory note from the digest.
+The skill needs to be installable from the repo, and it needs to instruct the
+agent to install the CLI.
+
+**Rationale.** Putting the skill in the repo (not a separate repo) keeps
+everything in one place and lets the skill-installer fetch it with `--repo
+janole/session-bandit --path skill`. Bundling core into the CLI eliminates the
+`workspace:*` dependency that can't resolve outside the monorepo — the
+published npm package (or `npm install -g packages/cli` from source) is
+self-contained. Core stays as a `devDependency` for workspace build order and
+typecheck, but is not a runtime dependency.
+
+**Consequences.** The CLI tarball is ~43KB (core inlined). The skill's
+`SKILL.md` includes install instructions for both `npm install -g
+session-bandit` (once published) and from-source fallback. The skill
+templates are first drafts to refine against real LLM outputs.

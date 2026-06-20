@@ -1,0 +1,140 @@
+---
+name: session-bandit
+description: 'Search, browse, and extract information from coding agent session transcripts (Claude Code, Codex). Use when: (1) You need to write a handoff note from a previous session, (2) You need to create a memory note from a past session, (3) You want to find what happened in a previous coding session, (4) You want to search across all your agent sessions for a specific topic, file, or command. Triggers on: "session extract", "handoff from previous session", "what did I do in the last session", "search my sessions", "find a session where I worked on".'
+---
+
+## Prerequisites
+
+Session Bandit is a CLI tool that must be installed on the system. Check if it's available:
+
+```sh
+command -v session-bandit
+```
+
+If not installed, install it globally:
+
+```sh
+npm install -g session-bandit
+```
+
+If the package is not yet on npm, install from source:
+
+```sh
+git clone https://github.com/janole/session-bandit.git
+cd session-bandit
+pnpm install
+pnpm -r build
+npm install -g packages/cli
+```
+
+Requires Node.js 22+ and pnpm 10+ (for building from source only; the npm install requires nothing but Node.js).
+
+Verify the installation:
+
+```sh
+session-bandit --version
+```
+
+## What Session Bandit does
+
+Session Bandit indexes the session transcripts that coding agents (Claude Code, Codex) write to disk as JSONL. It works fully offline — no API calls, no auth, no network. It scans `~/.claude/projects/` and `~/.codex/sessions/` by default.
+
+## Commands
+
+### List sessions
+
+```sh
+# List all sessions, most recent first (JSON lines)
+session-bandit list
+
+# Human-readable table with importance tier
+session-bandit list --pretty
+
+# Filter by agent or project
+session-bandit list --agent codex --project botbandit
+
+# Sort by substance/importance (heavy sessions first)
+session-bandit list --sort importance --pretty
+
+# Drop trivial sessions
+session-bandit list --min-importance moderate --pretty
+```
+
+### Show a session transcript
+
+```sh
+# Full ID or prefix match
+session-bandit show 342647fa-5bf
+session-bandit show 342647fa --agent claude
+```
+
+### Search across sessions
+
+```sh
+session-bandit search "tool approval" --pretty
+session-bandit search "apply_patch" --agent codex --pretty
+```
+
+### Extract a session digest (the key feature for handoffs/memories)
+
+```sh
+# Structured digest (JSON) — substance score, files, commands, errors, key turns
+session-bandit extract 342647fa-5bf --pretty
+
+# Wrap the digest in a ready-to-send synthesis prompt
+session-bandit extract 342647fa-5bf --prompt handoff
+session-bandit extract 342647fa-5bf --prompt memory
+
+# Include the full transcript in the digest
+session-bandit extract 342647fa-5bf --full --prompt handoff
+```
+
+### Check parsing health
+
+```sh
+session-bandit doctor --pretty
+```
+
+## Writing a handoff note
+
+When asked to write a handoff note from a previous session:
+
+1. **Find the session.** If the user gives a session ID, use it directly. Otherwise, list recent sessions and pick the relevant one:
+   ```sh
+   session-bandit list --sort importance --pretty
+   ```
+   Or search for a topic:
+   ```sh
+   session-bandit search "the topic" --pretty
+   ```
+
+2. **Generate the digest with a handoff prompt:**
+   ```sh
+   session-bandit extract <sessionId> --prompt handoff
+   ```
+   This emits a structured digest (substance score, files written, errors, goal, final state) wrapped in a synthesis prompt that tells you what to write.
+
+3. **Write the handoff.** The prompt asks you to cover: the goal, what was done, the current state, and what is left to do. Use the digest's structured data (files written, errors, key turns) as the factual basis. Keep it concise — a returning agent needs the state, not the full history.
+
+4. **Save the handoff** to wherever the user wants it (doc store, markdown file, etc.).
+
+## Writing a memory note
+
+When asked to create a memory note from a past session:
+
+1. **Find and extract the session:**
+   ```sh
+   session-bandit extract <sessionId> --prompt memory
+   ```
+
+2. **Write the memory note.** The prompt asks for 2–4 sentences covering: what the session was about, the key outcome, and files/decisions worth remembering. End with a suggested importance tier (trivial / light / moderate / substantive / heavy).
+
+3. **Save the memory note** to wherever the user wants it.
+
+## Tips
+
+- The `--prompt handoff` and `--prompt memory` templates are first drafts. Feel free to adapt the output format to the user's needs — the digest data is the valuable part, not the template text.
+- Use `--full` when you need the complete transcript for context (e.g. complex multi-step work). Without `--full`, the digest is compact and may omit details.
+- The substance score measures *activity* (tool calls, file writes, test runs), not *significance*. A short session can contain a critical decision. Read the key turns, not just the score.
+- Session IDs can be specified as prefixes (e.g. `342647fa` instead of the full UUID).
+- Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files.
