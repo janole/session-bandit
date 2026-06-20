@@ -270,18 +270,42 @@ already has the memory-writing capability.
   are guesses until we see what the consuming LLM does with them. Ship a first
   draft, refine against real outputs.
 
+## Validation (against 1084 real sessions)
+
+Implemented and spot-checked against live data (108 Claude + 973 Codex + build
+sessions):
+
+- **`list --sort importance`** surfaces the genuinely heavy sessions first
+  (1581, 2031, 1522 messages — all `heavy`). Tier filters: 22 heavy, 135
+  substantive, 1084 total. Full scan + per-session substance computes in ~1.9s.
+- **File extraction** matches what `show` reveals: a 1067-call Codex session
+  yielded 47 local files (apply_patch parsing); an 854-call Claude session
+  yielded 59 written + 23 read (Write/Edit/Read `file_path`). No command-string
+  noise leaked in.
+- **Trivial detection** is honest: a 2-message "are there any bugs in my code?"
+  session correctly scores `trivial` by activity — validating the open question
+  that *substance ≠ value* (it has a real question but no work done).
+
+**Refinement found during validation (not yet fixed):** in Codex sessions the
+first `user`-role message is often the injected AGENTS.md / permissions
+instructions, so `keyTurns.goal` picks up the instructions rather than the
+real task. The Codex adapter emits these as `user` messages (it only skips
+`developer`/`system` roles). A follow-up should either skip instruction-shaped
+user turns in the digest, or have the adapter tag them. Tracked as a v2 polish
+item, not a blocker.
+
 ## Build order (proposed)
 
-1. `digest.ts` in core: `computeDigest(session): SessionDigest` — the substance
+1. ✅ `digest.ts` in core: `computeDigest(session): SessionDigest` — the substance
    score, tiers, file extraction (Claude + Codex), test detection, key turns,
-   errors. Unit tests over the existing fixtures + a couple of new
-   substance-fixtures (a trivial "hello" and a heavy multi-file session).
-2. `extract` CLI command: emits the digest (JSON / `--pretty` / `--full`).
-   Injectable `ScanFn`, tested like the other commands.
-3. `list --sort importance` / `--min-importance` + substance fields on `list`
-   output.
-4. `--prompt handoff|memory` templates.
-5. Validate against real sessions: spot-check that the heavy/light sessions
+   errors. Unit tests over the existing fixtures + in-test constructed sessions
+   (31 digest tests).
+2. ✅ `extract` CLI command: emits the digest (JSON / `--pretty` / `--full` /
+   `--prompt`). Injectable `ScanFn`, tested (14 extract tests).
+3. ✅ `list --sort importance` / `--min-importance` + substance fields on `list`
+   output (7 list tests).
+4. ✅ `--prompt handoff|memory` templates.
+5. ✅ Validate against real sessions: spot-check that the heavy/light sessions
    from the recon land in the expected tiers, and that file extraction matches
-   what `show` reveals.
-6. Skill definition (separate from this repo) consuming `extract`.
+   what `show` reveals. (See "Validation" above.)
+6. ⏳ Skill definition (separate from this repo) consuming `extract`.

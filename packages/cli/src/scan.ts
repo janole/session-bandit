@@ -2,9 +2,12 @@ import {
   indexSessions,
   claudeAdapter,
   codexAdapter,
+  computeSubstance,
+  tierRank,
   type AdapterConfig,
   type Session,
   type AgentName,
+  type ImportanceTier,
 } from "@session-bandit/core";
 
 /** All adapters v1 knows about, in display order. */
@@ -49,6 +52,22 @@ export function sortByRecent(sessions: Session[]): Session[] {
   return [...sessions].sort((a, b) =>
     (b.startedAt || "").localeCompare(a.startedAt || ""),
   );
+}
+
+/** Sort sessions by substance score descending (most substantial first). */
+export function sortByImportance(sessions: Session[]): Session[] {
+  return [...sessions].sort(
+    (a, b) => computeSubstance(b).score - computeSubstance(a).score,
+  );
+}
+
+/** Keep only sessions whose substance tier is at least `min`. */
+export function filterByMinImportance(
+  sessions: Session[],
+  min: ImportanceTier,
+): Session[] {
+  const minRank = tierRank(min);
+  return sessions.filter((s) => tierRank(computeSubstance(s).tier) >= minRank);
 }
 
 /** Validate that a string is a known agent name. */

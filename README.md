@@ -52,20 +52,39 @@ session-bandit search "tool approval" --pretty
 
 # Search within a specific agent
 session-bandit search "adapter" --agent claude --pretty
+
+# Emit a structured digest of a session (substance, files, key turns)
+# for LLM ingestion — the payoff feature for handoffs / memories
+session-bandit extract 342647fa-5bf --pretty
+
+# Wrap the digest in a ready-to-send synthesis prompt
+session-bandit extract 342647fa-5bf --prompt handoff
+session-bandit extract 342647fa-5bf --prompt memory
+
+# Find the sessions where something actually happened (by substance score)
+session-bandit list --sort importance --pretty
+
+# Drop the trivial / hello-only sessions
+session-bandit list --min-importance moderate --pretty
 ```
 
 ### Commands
 
 ```
-session-bandit list [--agent <name>] [--project <path>] [--pretty]
+session-bandit list [--agent <name>] [--project <path>] [--sort recent|importance] [--min-importance <tier>] [--pretty]
 session-bandit show <sessionId> [--agent <name>]
 session-bandit search <query> [--agent <name>] [--project <path>] [--pretty]
+session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [--full] [--pretty]
 ```
 
 | Flag | Description |
 |---|---|
 | `-a, --agent <name>` | Filter by agent: `claude` or `codex` |
 | `-p, --project <path>` | Filter by project (substring match on project/cwd) |
+| `--sort <field>` | `list`: sort by `recent` (default) or `importance` (substance score) |
+| `--min-importance <tier>` | `list`: drop sessions below tier (`trivial`\|`light`\|`moderate`\|`substantive`\|`heavy`) |
+| `--prompt <kind>` | `extract`: wrap the digest in a synthesis prompt (`handoff`\|`memory`) |
+| `--full` | `extract`: include the complete de-noised transcript |
 | `--pretty` | Print human-readable output instead of JSON lines |
 
 **Output defaults to JSON lines** (one object per line) for machine

@@ -13,6 +13,25 @@ export { claudeAdapter } from "./adapters/claude.js";
 export { codexAdapter } from "./adapters/codex.js";
 export { readJsonl } from "./jsonl.js";
 export { decodeCwd } from "./adapters/claude.js";
+export {
+  computeDigest,
+  computeSubstance,
+  tierForScore,
+  tierRank,
+  TIER_ORDER,
+  extractCodexPatchFiles,
+  extractCommandString,
+  type SessionDigest,
+  type Substance,
+  type SubstanceSignals,
+  type ImportanceTier,
+  type DigestFiles,
+  type DigestCommands,
+  type DigestTestRun,
+  type DigestError,
+  type DigestKeyTurns,
+  type DigestToolUsage,
+} from "./digest.js";
 
 /**
  * Expand a leading `~` to the user's home directory. Leaves other paths

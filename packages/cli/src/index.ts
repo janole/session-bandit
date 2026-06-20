@@ -3,6 +3,7 @@ import { scanAll } from "./scan.js";
 import { makeListCommand } from "./commands/list.js";
 import { makeShowCommand } from "./commands/show.js";
 import { makeSearchCommand } from "./commands/search.js";
+import { makeExtractCommand } from "./commands/extract.js";
 
 // Re-export core for programmatic use.
 export {
@@ -15,7 +16,7 @@ export {
   type ToolCall,
   type AgentName,
 } from "@session-bandit/core";
-export { scanAll, filterSessions, sortByRecent, type ScanFn } from "./scan.js";
+export { scanAll, filterSessions, sortByRecent, sortByImportance, filterByMinImportance, type ScanFn } from "./scan.js";
 
 /**
  * Build the Commander program (without running it). Useful for tests.
@@ -32,6 +33,7 @@ export function createProgram(): Command {
   program.addCommand(makeListCommand(scanAll));
   program.addCommand(makeShowCommand(scanAll));
   program.addCommand(makeSearchCommand(scanAll));
+  program.addCommand(makeExtractCommand(scanAll));
 
   return program;
 }

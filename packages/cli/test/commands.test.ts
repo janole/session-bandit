@@ -36,6 +36,12 @@ function makeSession(overrides: Partial<Session> = {}): Session {
             status: "ok",
             output: "export function parse() {}",
           },
+          {
+            name: "Edit",
+            input: { file_path: "/Users/ole/projekte/demo/src/parser.ts" },
+            status: "ok",
+            output: null,
+          },
         ],
         timestamp: "2026-06-01T10:00:05.000Z",
       },
@@ -208,6 +214,68 @@ describe("list command", () => {
     ]);
     expect(exitCode).toBe(1);
     expect(stderr).toContain("Unknown agent");
+  });
+
+  it("summary objects include substance score and tier", () => {
+    const { stdout } = runCommand(makeListCommand, []);
+    const first = JSON.parse(stdout.split("\n")[0]!);
+    expect(first).toHaveProperty("substance");
+    expect(first.substance).toHaveProperty("score");
+    expect(first.substance).toHaveProperty("tier");
+  });
+
+  it("--sort importance orders by substance score desc", () => {
+    const { stdout } = runCommand(makeListCommand, ["--sort", "importance"]);
+    const lines = stdout.split("\n").filter(Boolean);
+    const scores = lines.map((l) => JSON.parse(l).substance.score);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+    expect(scores[0]).toBeGreaterThanOrEqual(scores[scores.length - 1]!);
+  });
+
+  it("--min-importance drops sessions below the tier", () => {
+    const { stdout } = runCommand(makeListCommand, [
+      "--min-importance",
+      "light",
+    ]);
+    const lines = stdout.split("\n").filter(Boolean);
+    expect(lines.length).toBeGreaterThanOrEqual(1);
+    expect(lines.length).toBeLessThan(3);
+    for (const l of lines) {
+      const tier = JSON.parse(l).substance.tier;
+      expect(["light", "moderate", "substantive", "heavy"]).toContain(tier);
+    }
+  });
+
+  it("--min-importance trivial keeps everything (trivial is the floor)", () => {
+    const { stdout } = runCommand(makeListCommand, [
+      "--min-importance",
+      "trivial",
+    ]);
+    const lines = stdout.split("\n").filter(Boolean);
+    expect(lines).toHaveLength(3);
+  });
+
+  it("invalid --min-importance errors", () => {
+    const { stderr, exitCode } = runCommand(makeListCommand, [
+      "--min-importance",
+      "bogus",
+    ]);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Unknown importance tier");
+  });
+
+  it("invalid --sort errors", () => {
+    const { stderr, exitCode } = runCommand(makeListCommand, [
+      "--sort",
+      "bogus",
+    ]);
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Unknown sort");
+  });
+
+  it("--pretty table includes a tier column", () => {
+    const { stdout } = runCommand(makeListCommand, ["--pretty"]);
+    expect(stdout).toContain("tier");
   });
 });
 
