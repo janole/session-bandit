@@ -329,7 +329,7 @@ structural choices is in [`docs/decisions.md`](docs/decisions.md).
 ## Origin
 
 v0.1.0 — the full search, browse, extract, and doctor feature set, plus the
-agent skill and npm packaging — was built by **GLM-5.2** in a single session.
+agent skill and npm packaging — was built by [GLM-5.2](https://z.ai/blog/glm-5.2) in a single session.
 
 ## License
 
