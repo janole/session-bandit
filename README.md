@@ -46,20 +46,33 @@ Requires Node.js 22+ and pnpm 10+. The `npm install -g packages/cli` step
 installs the CLI globally from the built output (core is bundled into the
 CLI, so no separate install needed).
 
-### Codex agent skill
+### Agent skill
 
-Session Bandit ships a [Codex agent skill](https://developers.openai.com/codex/codex-manual.md)
-in the `skill/` directory. The skill teaches a coding agent how to use
+Session Bandit ships an agent skill in the `skill/` directory. The skill
+teaches Claude Code, Codex, and other `npx skills`-compatible agents how to use
 Session Bandit to write handoff notes and memory notes from past sessions.
 
-Install it with the Codex skill-installer:
+Install it globally for Claude Code:
 
 ```sh
-# From the repo
-$skill install --repo janole/session-bandit --path skill
+npx skills add janole/session-bandit --skill session-bandit -g -a claude-code -y
 ```
 
-Or manually copy the `skill/` directory to `~/.agents/skills/session-bandit/`.
+Install it globally for Codex:
+
+```sh
+npx skills add janole/session-bandit --skill session-bandit -g -a codex -y
+```
+
+You can also install directly from the skill path:
+
+```sh
+npx skills add https://github.com/janole/session-bandit/tree/main/skill -g -a claude-code -y
+```
+
+Or manually copy the `skill/` directory to the relevant agent skill directory,
+for example `~/.claude/skills/session-bandit/` for Claude Code or
+`~/.codex/skills/session-bandit/` for Codex.
 
 The skill's `SKILL.md` includes instructions for the agent to install the CLI
 via `npm install -g session-bandit` if it's not already available.
