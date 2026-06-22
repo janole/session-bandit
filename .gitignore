@@ -3,6 +3,7 @@ dist/
 *.tsbuildinfo
 .DS_Store
 coverage/
+.eslintcache
 .env*.local
 .playwright-mcp
 **/.*.swp
