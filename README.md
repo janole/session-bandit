@@ -326,6 +326,11 @@ structural choices is in [`docs/decisions.md`](docs/decisions.md).
 - **Usage tier** — read Claude's `~/.claude/stats-cache.json` for offline
   token/cost estimates. Codex `token_count` events already cleanly skipped.
 
+## Origin
+
+v0.1.0 — the full search, browse, extract, and doctor feature set, plus the
+agent skill and npm packaging — was built by **GLM-5.2** in a single session.
+
 ## License
 
 MIT
