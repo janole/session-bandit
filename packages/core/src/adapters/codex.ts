@@ -1,8 +1,8 @@
-import { readdirSync, statSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync,statSync } from "node:fs";
 import { basename } from "node:path";
-import { readJsonl } from "../jsonl.js";
+
 import type { Adapter } from "../adapter.js";
-import type { Session, Message, ToolCall } from "../types.js";
+import type { Message, Session, ToolCall } from "../types.js";
 
 /**
  * Codex stores sessions under `$CODEX_HOME/sessions` (default `~/.codex/sessions`).
@@ -47,60 +47,61 @@ import type { Session, Message, ToolCall } from "../types.js";
 // ---- line shapes -----------------------------------------------------------
 
 interface ContentBlock {
-  type: string;
-  text?: string;
+    type: string;
+    text?: string;
 }
 
 interface Item {
-  type?: string;
-  role?: string;
-  content?: ContentBlock[];
-  name?: string;
-  namespace?: string;
-  arguments?: string;
-  call_id?: string;
-  status?: string;
-  action?: unknown;
-  input?: unknown;
-  output?: string;
-  id?: string;
+    type?: string;
+    role?: string;
+    content?: ContentBlock[];
+    name?: string;
+    namespace?: string;
+    arguments?: string;
+    call_id?: string;
+    status?: string;
+    action?: unknown;
+    input?: unknown;
+    output?: string;
+    id?: string;
 }
 
 interface Envelope {
-  timestamp?: string;
-  type?: string;
-  payload?: Item | Record<string, unknown>;
+    timestamp?: string;
+    type?: string;
+    payload?: Item | Record<string, unknown>;
 }
 
 interface SessionMeta {
-  id?: string;
-  timestamp?: string;
-  cwd?: string;
-  originator?: string;
-  cli_version?: string;
-  source?: string;
-  model_provider?: string;
-  instructions?: string | null;
+    id?: string;
+    timestamp?: string;
+    cwd?: string;
+    originator?: string;
+    cli_version?: string;
+    source?: string;
+    model_provider?: string;
+    instructions?: string | null;
 }
 
 interface LegacyJson {
-  session?: { id?: string; timestamp?: string; instructions?: string | null };
-  items?: Item[];
+    session?: { id?: string; timestamp?: string; instructions?: string | null };
+    items?: Item[];
 }
 
 // ---- helpers ---------------------------------------------------------------
 
 /** Extract text from a message's content blocks (input_text / output_text). */
-function messageText(content: ContentBlock[] | undefined): string {
-  if (!Array.isArray(content)) return "";
-  return content
-    .filter(
-      (b) =>
-        (b.type === "input_text" || b.type === "output_text") &&
+function messageText(content: ContentBlock[] | undefined): string 
+{
+    if (!Array.isArray(content)) {return "";}
+    return content
+        .filter(
+            (b) =>
+                (b.type === "input_text" || b.type === "output_text") &&
         typeof b.text === "string",
-    )
-    .map((b) => b.text as string)
-    .join("\n");
+        )
+        .map((b) => b.text as string)
+        .join("\n");
 }
 
 /**
@@ -118,9 +119,9 @@ function messageText(content: ContentBlock[] | undefined): string {
  * Exported so the `doctor` command can verify detection rates on real logs.
  */
 export const CODEX_INJECTED_MARKERS = [
-  "# AGENTS.md instructions for",
-  "<environment_context>",
-  "<user_action>",
+    "# AGENTS.md instructions for",
+    "<environment_context>",
+    "<user_action>",
 ] as const;
 
 /**
@@ -129,154 +130,178 @@ export const CODEX_INJECTED_MARKERS = [
  * the known injection markers. Skipped from the normalized model, consistent
  * with developer/system skips.
  */
-function isInjectedUserMessage(content: ContentBlock[] | undefined): boolean {
-  if (!Array.isArray(content)) return false;
-  return content.some((b) => {
-    const text = (b.text ?? "").trimStart();
-    return CODEX_INJECTED_MARKERS.some((marker) => text.startsWith(marker));
-  });
+function isInjectedUserMessage(content: ContentBlock[] | undefined): boolean 
+{
+    if (!Array.isArray(content)) {return false;}
+    return content.some((b) => 
+    {
+        const text = (b.text ?? "").trimStart();
+        return CODEX_INJECTED_MARKERS.some((marker) => text.startsWith(marker));
+    });
 }
 
 /** Build a full tool name from a function_call's namespace + name. */
-function fullToolName(name: string | undefined, namespace: string | undefined): string {
-  if (namespace && name) return `${namespace}${name}`;
-  return name ?? "unknown";
+function fullToolName(name: string | undefined, namespace: string | undefined): string 
+{
+    if (namespace && name) {return `${namespace}${name}`;}
+    return name ?? "unknown";
 }
 
 /** Parse a function_call's `arguments` (a JSON string) into an object. */
-function parseArguments(args: string | undefined): unknown {
-  if (!args) return null;
-  try {
-    return JSON.parse(args);
-  } catch {
-    return args;
-  }
+function parseArguments(args: string | undefined): unknown 
+{
+    if (!args) {return null;}
+    try 
+    {
+        return JSON.parse(args);
+    }
+    catch 
+    {
+        return args;
+    }
 }
 
 /** Map a Codex status string to our status enum. */
-function mapStatus(status: string | undefined): "ok" | "error" | "unknown" {
-  if (status === "completed" || status === "succeeded") return "ok";
-  if (status === "failed" || status === "error") return "error";
-  return "unknown";
+function mapStatus(status: string | undefined): "ok" | "error" | "unknown" 
+{
+    if (status === "completed" || status === "succeeded") {return "ok";}
+    if (status === "failed" || status === "error") {return "error";}
+    return "unknown";
 }
 
 // ---- core item processor ---------------------------------------------------
 
 interface ParseContext {
-  sessionId: string;
-  startedAt: string;
-  endedAt: string | null;
-  cwd: string | null;
-  model: string | null;
-  messages: Message[];
-  /** call_id → the ToolCall to attach output to. */
-  callIndex: Map<string, ToolCall>;
+    sessionId: string;
+    startedAt: string;
+    endedAt: string | null;
+    cwd: string | null;
+    model: string | null;
+    messages: Message[];
+    /** call_id → the ToolCall to attach output to. */
+    callIndex: Map<string, ToolCall>;
 }
 
 /** Process one normalized item (from any format) into messages/tool calls. */
-function processItem(item: Item, ts: string | null, ctx: ParseContext): void {
-  const type = item.type;
+function processItem(item: Item, ts: string | null, ctx: ParseContext): void 
+{
+    const type = item.type;
 
-  if (type === "message") {
-    const role = item.role;
-    if (role === "user") {
-      // Skip injected AGENTS.md / environment_context / user_action blocks.
-      // These wear a `user` role label but are machine-generated instructions,
-      // not real user input. Without this, the digest's `keyTurns.goal` would
-      // pick up the AGENTS.md instructions instead of the actual task.
-      if (isInjectedUserMessage(item.content)) return;
-      ctx.messages.push({
-        role: "user",
-        text: messageText(item.content),
-        toolCalls: [],
-        timestamp: ts,
-      });
-    } else if (role === "assistant") {
-      ctx.messages.push({
-        role: "assistant",
-        text: messageText(item.content),
-        toolCalls: [],
-        timestamp: ts,
-      });
+    if (type === "message") 
+    {
+        const role = item.role;
+        if (role === "user") 
+        {
+            // Skip injected AGENTS.md / environment_context / user_action blocks.
+            // These wear a `user` role label but are machine-generated instructions,
+            // not real user input. Without this, the digest's `keyTurns.goal` would
+            // pick up the AGENTS.md instructions instead of the actual task.
+            if (isInjectedUserMessage(item.content)) {return;}
+            ctx.messages.push({
+                role: "user",
+                text: messageText(item.content),
+                toolCalls: [],
+                timestamp: ts,
+            });
+        }
+        else if (role === "assistant") 
+        {
+            ctx.messages.push({
+                role: "assistant",
+                text: messageText(item.content),
+                toolCalls: [],
+                timestamp: ts,
+            });
+        }
+        // developer / system messages are instructions/permissions — skipped
+        return;
     }
-    // developer / system messages are instructions/permissions — skipped
-    return;
-  }
 
-  if (type === "reasoning") {
+    if (type === "reasoning") 
+    {
     // thinking blocks — skipped from text (consistent with Claude adapter)
-    return;
-  }
+        return;
+    }
 
-  // Tool calls → each becomes an assistant message with one ToolCall
-  if (
-    type === "function_call" ||
+    // Tool calls → each becomes an assistant message with one ToolCall
+    if (
+        type === "function_call" ||
     type === "custom_tool_call" ||
     type === "local_shell_call" ||
     type === "web_search_call"
-  ) {
-    const call_id = item.call_id;
-    const tc: ToolCall = {
-      name:
+    ) 
+    {
+        const call_id = item.call_id;
+        const tc: ToolCall = {
+            name:
         type === "local_shell_call"
-          ? "shell"
-          : type === "web_search_call"
-            ? "web_search"
-            : fullToolName(item.name, item.namespace),
-      input:
+            ? "shell"
+            : type === "web_search_call"
+                ? "web_search"
+                : fullToolName(item.name, item.namespace),
+            input:
         type === "local_shell_call" || type === "web_search_call"
-          ? (item.action ?? null)
-          : type === "custom_tool_call"
-            ? (item.input ?? null)
-            : parseArguments(item.arguments),
-      status: mapStatus(item.status),
-      output: null,
-    };
-    if (call_id) ctx.callIndex.set(call_id, tc);
-    ctx.messages.push({
-      role: "assistant",
-      text: "",
-      toolCalls: [tc],
-      timestamp: ts,
-    });
-    return;
-  }
-
-  // Tool outputs → matched to the tool call by call_id
-  if (type === "function_call_output" || type === "custom_tool_call_output") {
-    const call_id = item.call_id;
-    if (call_id) {
-      const tc = ctx.callIndex.get(call_id);
-      if (tc) {
-        tc.output = item.output ?? null;
-        // The output is the ground truth for status. A `completed` tool call
-        // can still produce a non-zero exit code, so always infer from output
-        // when an exit_code is present; otherwise keep the item's status.
-        const inferred = inferStatusFromOutput(item.output);
-        if (inferred !== "unknown") {
-          tc.status = inferred;
-        }
-      }
+            ? (item.action ?? null)
+            : type === "custom_tool_call"
+                ? (item.input ?? null)
+                : parseArguments(item.arguments),
+            status: mapStatus(item.status),
+            output: null,
+        };
+        if (call_id) {ctx.callIndex.set(call_id, tc);}
+        ctx.messages.push({
+            role: "assistant",
+            text: "",
+            toolCalls: [tc],
+            timestamp: ts,
+        });
+        return;
     }
-    return;
-  }
 
-  // unrecognized item type — skip (never throw)
+    // Tool outputs → matched to the tool call by call_id
+    if (type === "function_call_output" || type === "custom_tool_call_output") 
+    {
+        const call_id = item.call_id;
+        if (call_id) 
+        {
+            const tc = ctx.callIndex.get(call_id);
+            if (tc) 
+            {
+                tc.output = item.output ?? null;
+                // The output is the ground truth for status. A `completed` tool call
+                // can still produce a non-zero exit code, so always infer from output
+                // when an exit_code is present; otherwise keep the item's status.
+                const inferred = inferStatusFromOutput(item.output);
+                if (inferred !== "unknown") 
+                {
+                    tc.status = inferred;
+                }
+            }
+        }
+        return;
+    }
+
+    // unrecognized item type — skip (never throw)
 }
 
 /** Best-effort status inference from a Codex tool output string. */
-function inferStatusFromOutput(output: string | undefined): "ok" | "error" | "unknown" {
-  if (!output) return "unknown";
-  try {
-    const parsed = JSON.parse(output);
-    const exitCode = parsed?.metadata?.exit_code;
-    if (typeof exitCode === "number") {
-      return exitCode === 0 ? "ok" : "error";
+function inferStatusFromOutput(output: string | undefined): "ok" | "error" | "unknown" 
+{
+    if (!output) {return "unknown";}
+    try 
+    {
+        const parsed = JSON.parse(output);
+        const exitCode = parsed?.metadata?.exit_code;
+        if (typeof exitCode === "number") 
+        {
+            return exitCode === 0 ? "ok" : "error";
+        }
     }
-  } catch {
+    catch 
+    {
     // not JSON — treat as ok (the output exists)
-  }
-  return "ok";
+    }
+    return "ok";
 }
 
 // ---- format detection + parsing --------------------------------------------
@@ -285,148 +310,170 @@ function inferStatusFromOutput(output: string | undefined): "ok" | "error" | "un
  * Parse a Codex session file. Handles all three formats (legacy .json, flat
  * .jsonl, modern envelope .jsonl). Never throws.
  */
-function parseCodex(filePath: string): Session {
-  const fileName = basename(filePath);
+function parseCodex(filePath: string): Session 
+{
+    const fileName = basename(filePath);
 
-  // Read raw text once (needed for .json detection and .jsonl line parsing).
-  let raw: string;
-  try {
-    raw = readFileSync(filePath, "utf8");
-  } catch {
-    return emptySession(filePath, fileName);
-  }
+    // Read raw text once (needed for .json detection and .jsonl line parsing).
+    let raw: string;
+    try 
+    {
+        raw = readFileSync(filePath, "utf8");
+    }
+    catch 
+    {
+        return emptySession(filePath, fileName);
+    }
 
-  // Detect format A (legacy .json): the file is a single JSON object.
-  // We check the extension first, then validate by parsing.
-  if (fileName.endsWith(".json")) {
-    return parseLegacyJson(raw, filePath, fileName);
-  }
+    // Detect format A (legacy .json): the file is a single JSON object.
+    // We check the extension first, then validate by parsing.
+    if (fileName.endsWith(".json")) 
+    {
+        return parseLegacyJson(raw, filePath, fileName);
+    }
 
-  // Formats B and C are both .jsonl — parse line by line.
-  return parseJsonl(raw, filePath, fileName);
+    // Formats B and C are both .jsonl — parse line by line.
+    return parseJsonl(raw, filePath, fileName);
 }
 
 /** Parse a legacy .json file (format A). */
 function parseLegacyJson(
-  raw: string,
-  filePath: string,
-  fileName: string,
-): Session {
-  let doc: LegacyJson;
-  try {
-    doc = JSON.parse(raw) as LegacyJson;
-  } catch {
-    return emptySession(filePath, fileName);
-  }
+    raw: string,
+    filePath: string,
+    fileName: string,
+): Session 
+{
+    let doc: LegacyJson;
+    try 
+    {
+        doc = JSON.parse(raw) as LegacyJson;
+    }
+    catch 
+    {
+        return emptySession(filePath, fileName);
+    }
 
-  const session = doc.session ?? {};
-  const ctx: ParseContext = {
-    sessionId: session.id ?? stripExt(fileName),
-    startedAt: session.timestamp ?? "",
-    endedAt: session.timestamp ?? null,
-    cwd: null,
-    model: null,
-    messages: [],
-    callIndex: new Map(),
-  };
+    const session = doc.session ?? {};
+    const ctx: ParseContext = {
+        sessionId: session.id ?? stripExt(fileName),
+        startedAt: session.timestamp ?? "",
+        endedAt: session.timestamp ?? null,
+        cwd: null,
+        model: null,
+        messages: [],
+        callIndex: new Map(),
+    };
 
-  for (const item of doc.items ?? []) {
-    if (!item || typeof item !== "object") continue;
-    processItem(item, null, ctx);
-  }
+    for (const item of doc.items ?? []) 
+    {
+        if (!item || typeof item !== "object") {continue;}
+        processItem(item, null, ctx);
+    }
 
-  return buildSession(filePath, ctx);
+    return buildSession(filePath, ctx);
 }
 
 /** Parse a .jsonl file (format B flat or format C envelope). */
-function parseJsonl(raw: string, filePath: string, fileName: string): Session {
-  const lines = parseLines(raw);
-  if (lines.length === 0) return emptySession(filePath, fileName);
+function parseJsonl(raw: string, filePath: string, fileName: string): Session 
+{
+    const lines = parseLines(raw);
+    if (lines.length === 0) {return emptySession(filePath, fileName);}
 
-  const ctx: ParseContext = {
-    sessionId: stripExt(fileName),
-    startedAt: "",
-    endedAt: null,
-    cwd: null,
-    model: null,
-    messages: [],
-    callIndex: new Map(),
-  };
+    const ctx: ParseContext = {
+        sessionId: stripExt(fileName),
+        startedAt: "",
+        endedAt: null,
+        cwd: null,
+        model: null,
+        messages: [],
+        callIndex: new Map(),
+    };
 
-  for (const line of lines) {
-    if (!line || typeof line !== "object") continue;
+    for (const line of lines) 
+    {
+        if (!line || typeof line !== "object") {continue;}
 
-    // Format C: envelope with { timestamp, type, payload }
-    if (isEnvelope(line)) {
-      processEnvelope(line as Envelope, ctx);
-      continue;
+        // Format C: envelope with { timestamp, type, payload }
+        if (isEnvelope(line)) 
+        {
+            processEnvelope(line as Envelope, ctx);
+            continue;
+        }
+
+        // Format B: bare items. The first line may be metadata { id, timestamp,
+        // instructions } (no `type` field); subsequent lines are typed items.
+        if (isBareMetadata(line)) 
+        {
+            const meta = line as SessionMeta;
+            if (meta.id) {ctx.sessionId = meta.id;}
+            if (meta.timestamp) 
+            {
+                ctx.startedAt = meta.timestamp;
+                ctx.endedAt = meta.timestamp;
+            }
+            continue;
+        }
+
+        // Otherwise it's a bare typed item.
+        processItem(line as Item, null, ctx);
     }
 
-    // Format B: bare items. The first line may be metadata { id, timestamp,
-    // instructions } (no `type` field); subsequent lines are typed items.
-    if (isBareMetadata(line)) {
-      const meta = line as SessionMeta;
-      if (meta.id) ctx.sessionId = meta.id;
-      if (meta.timestamp) {
-        ctx.startedAt = meta.timestamp;
-        ctx.endedAt = meta.timestamp;
-      }
-      continue;
-    }
-
-    // Otherwise it's a bare typed item.
-    processItem(line as Item, null, ctx);
-  }
-
-  return buildSession(filePath, ctx);
+    return buildSession(filePath, ctx);
 }
 
 /** Process a modern envelope line (format C). */
-function processEnvelope(env: Envelope, ctx: ParseContext): void {
-  const ts = env.timestamp ?? null;
+function processEnvelope(env: Envelope, ctx: ParseContext): void 
+{
+    const ts = env.timestamp ?? null;
 
-  if (env.timestamp) {
-    if (!ctx.startedAt) ctx.startedAt = env.timestamp;
-    ctx.endedAt = env.timestamp;
-  }
-
-  const type = env.type;
-  const payload = env.payload;
-
-  if (type === "session_meta" && payload && typeof payload === "object") {
-    const meta = payload as SessionMeta;
-    if (meta.id) ctx.sessionId = meta.id;
-    if (meta.timestamp) {
-      if (!ctx.startedAt) ctx.startedAt = meta.timestamp;
-      // session_meta.timestamp is the session start; don't let it override
-      // endedAt which should track the last event.
+    if (env.timestamp) 
+    {
+        if (!ctx.startedAt) {ctx.startedAt = env.timestamp;}
+        ctx.endedAt = env.timestamp;
     }
-    if (meta.cwd) ctx.cwd = meta.cwd;
-    return;
-  }
 
-  if (type === "turn_context" && payload && typeof payload === "object") {
-    const tc = payload as { model?: string; cwd?: string };
-    if (tc.model && !ctx.model) ctx.model = tc.model;
-    if (tc.cwd && !ctx.cwd) ctx.cwd = tc.cwd;
-    return;
-  }
+    const type = env.type;
+    const payload = env.payload;
 
-  if (type === "response_item" && payload && typeof payload === "object") {
-    processItem(payload as Item, ts, ctx);
-    return;
-  }
+    if (type === "session_meta" && payload && typeof payload === "object") 
+    {
+        const meta = payload as SessionMeta;
+        if (meta.id) {ctx.sessionId = meta.id;}
+        if (meta.timestamp) 
+        {
+            if (!ctx.startedAt) {ctx.startedAt = meta.timestamp;}
+            // session_meta.timestamp is the session start; don't let it override
+            // endedAt which should track the last event.
+        }
+        if (meta.cwd) {ctx.cwd = meta.cwd;}
+        return;
+    }
 
-  // event_msg, compacted, and unknown envelope types — skipped
+    if (type === "turn_context" && payload && typeof payload === "object") 
+    {
+        const tc = payload as { model?: string; cwd?: string };
+        if (tc.model && !ctx.model) {ctx.model = tc.model;}
+        if (tc.cwd && !ctx.cwd) {ctx.cwd = tc.cwd;}
+        return;
+    }
+
+    if (type === "response_item" && payload && typeof payload === "object") 
+    {
+        processItem(payload as Item, ts, ctx);
+        return;
+    }
+
+    // event_msg, compacted, and unknown envelope types — skipped
 }
 
 // ---- format helpers --------------------------------------------------------
 
 /** True if a line looks like a modern envelope { timestamp, type, payload }. */
-function isEnvelope(line: object): boolean {
-  const env = line as Envelope;
-  return (
-    typeof env.type === "string" &&
+function isEnvelope(line: object): boolean 
+{
+    const env = line as Envelope;
+    return (
+        typeof env.type === "string" &&
     typeof env.payload === "object" &&
     env.payload !== null &&
     // session_meta / response_item / event_msg / turn_context / compacted
@@ -435,109 +482,131 @@ function isEnvelope(line: object): boolean {
       env.type === "event_msg" ||
       env.type === "turn_context" ||
       env.type === "compacted")
-  );
+    );
 }
 
 /** True if a bare line is the metadata header { id, timestamp, instructions }. */
-function isBareMetadata(line: object): boolean {
-  const obj = line as SessionMeta;
-  return (
-    typeof obj.id === "string" &&
+function isBareMetadata(line: object): boolean 
+{
+    const obj = line as SessionMeta;
+    return (
+        typeof obj.id === "string" &&
     typeof obj.timestamp === "string" &&
     !("type" in obj)
-  );
+    );
 }
 
 /** Parse JSONL lines from raw text, skipping blank/malformed lines. */
-function parseLines(raw: string): unknown[] {
-  const out: unknown[] = [];
-  for (const line of raw.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    try {
-      out.push(JSON.parse(trimmed));
-    } catch {
-      // skip malformed line
+function parseLines(raw: string): unknown[] 
+{
+    const out: unknown[] = [];
+    for (const line of raw.split("\n")) 
+    {
+        const trimmed = line.trim();
+        if (!trimmed) {continue;}
+        try 
+        {
+            out.push(JSON.parse(trimmed));
+        }
+        catch 
+        {
+            // skip malformed line
+        }
     }
-  }
-  return out;
+    return out;
 }
 
 /** Remove the extension from a filename: `rollout-...-uuid.jsonl` → `rollout-...-uuid`. */
-function stripExt(fileName: string): string {
-  return fileName.replace(/\.(jsonl?|jsonl\.zst)$/, "");
+function stripExt(fileName: string): string 
+{
+    return fileName.replace(/\.(jsonl?|jsonl\.zst)$/, "");
 }
 
 /** Build an empty (0-message) Session for error/empty cases. */
-function emptySession(filePath: string, fileName: string): Session {
-  return {
-    agent: "codex",
-    sessionId: stripExt(fileName),
-    filePath,
-    project: null,
-    cwd: null,
-    startedAt: "",
-    endedAt: null,
-    model: null,
-    messageCount: 0,
-    messages: [],
-  };
+function emptySession(filePath: string, fileName: string): Session 
+{
+    return {
+        agent: "codex",
+        sessionId: stripExt(fileName),
+        filePath,
+        project: null,
+        cwd: null,
+        startedAt: "",
+        endedAt: null,
+        model: null,
+        messageCount: 0,
+        messages: [],
+    };
 }
 
 /** Build the final Session from a ParseContext. */
-function buildSession(filePath: string, ctx: ParseContext): Session {
-  return {
-    agent: "codex",
-    sessionId: ctx.sessionId,
-    filePath,
-    project: ctx.cwd,
-    cwd: ctx.cwd,
-    startedAt: ctx.startedAt,
-    endedAt: ctx.endedAt,
-    model: ctx.model,
-    messageCount: ctx.messages.length,
-    messages: ctx.messages,
-  };
+function buildSession(filePath: string, ctx: ParseContext): Session 
+{
+    return {
+        agent: "codex",
+        sessionId: ctx.sessionId,
+        filePath,
+        project: ctx.cwd,
+        cwd: ctx.cwd,
+        startedAt: ctx.startedAt,
+        endedAt: ctx.endedAt,
+        model: ctx.model,
+        messageCount: ctx.messages.length,
+        messages: ctx.messages,
+    };
 }
 
 // ---- adapter ---------------------------------------------------------------
 
-function walkSessions(root: string, files: string[]): void {
-  let entries: string[];
-  try {
-    entries = readdirSync(root);
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    const sub = `${root}/${entry}`;
-    let st;
-    try {
-      st = statSync(sub);
-    } catch {
-      continue;
+function walkSessions(root: string, files: string[]): void 
+{
+    let entries: string[];
+    try 
+    {
+        entries = readdirSync(root);
     }
-    if (st.isDirectory()) {
-      walkSessions(sub, files);
-    } else if (st.isFile()) {
-      // Accept .jsonl and legacy .json (but not .jsonl.zst — no zstd dep in v1).
-      if (
-        (entry.startsWith("rollout-") && entry.endsWith(".jsonl")) ||
+    catch 
+    {
+        return;
+    }
+    for (const entry of entries) 
+    {
+        const sub = `${root}/${entry}`;
+        let st;
+        try 
+        {
+            st = statSync(sub);
+        }
+        catch 
+        {
+            continue;
+        }
+        if (st.isDirectory()) 
+        {
+            walkSessions(sub, files);
+        }
+        else if (st.isFile()) 
+        {
+            // Accept .jsonl and legacy .json (but not .jsonl.zst — no zstd dep in v1).
+            if (
+                (entry.startsWith("rollout-") && entry.endsWith(".jsonl")) ||
         (entry.startsWith("rollout-") && entry.endsWith(".json"))
-      ) {
-        files.push(sub);
-      }
+            ) 
+            {
+                files.push(sub);
+            }
+        }
     }
-  }
 }
 
 export const codexAdapter: Adapter = {
-  agent: "codex",
-  defaultRoot: () => "~/.codex/sessions",
-  discover(root: string): string[] {
-    const files: string[] = [];
-    walkSessions(root, files);
-    return files.sort();
-  },
-  parse: parseCodex,
+    agent: "codex",
+    defaultRoot: () => "~/.codex/sessions",
+    discover(root: string): string[] 
+    {
+        const files: string[] = [];
+        walkSessions(root, files);
+        return files.sort();
+    },
+    parse: parseCodex,
 };

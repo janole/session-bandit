@@ -10,7 +10,8 @@ export function readJsonl(filePath: string): unknown[]
     try
     {
         text = readFileSync(filePath, "utf8");
-    } catch
+    }
+    catch
     {
         return [];
     }
@@ -18,11 +19,12 @@ export function readJsonl(filePath: string): unknown[]
     for (const line of text.split("\n"))
     {
         const trimmed = line.trim();
-        if (!trimmed) continue;
+        if (!trimmed) {continue;}
         try
         {
             out.push(JSON.parse(trimmed));
-        } catch
+        }
+        catch
         {
             // skip malformed line
         }
