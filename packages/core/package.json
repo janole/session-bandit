@@ -2,6 +2,8 @@
   "name": "@session-bandit/core",
   "version": "0.0.0",
   "description": "Core library for indexing and searching coding agent sessions.",
+  "license": "MIT",
+  "author": "Jan Ole Suhr",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,7 +13,10 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
