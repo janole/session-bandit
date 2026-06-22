@@ -3,6 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "description": "Search, browse, and extract information from your coding agent sessions.",
+  "license": "MIT",
+  "author": "Jan Ole Suhr",
   "packageManager": "pnpm@10.33.3",
   "engines": {
     "node": ">=22"
