@@ -39,6 +39,19 @@ session-bandit --version
 
 Session Bandit indexes the session transcripts that coding agents (Claude Code, Codex) write to disk as JSONL. It works fully offline — no API calls, no auth, no network. It scans `~/.claude/projects/` and `~/.codex/sessions/` by default.
 
+## Output modes
+
+Prefer the default machine-readable output when using Session Bandit as an
+agent tool:
+
+- `list` and `search` print JSON lines by default.
+- `extract` and `doctor` print JSON by default.
+- `show` prints a human-readable transcript.
+
+Use `--pretty` only when a human-readable terminal view is useful for browsing
+or reporting to the user. Do not add `--pretty` to commands whose output you
+intend to parse or use as structured input for a handoff or memory note.
+
 ## Commands
 
 ### List sessions
@@ -54,10 +67,10 @@ session-bandit list --pretty
 session-bandit list --agent codex --project botbandit
 
 # Sort by substance/importance (heavy sessions first)
-session-bandit list --sort importance --pretty
+session-bandit list --sort importance
 
 # Drop trivial sessions
-session-bandit list --min-importance moderate --pretty
+session-bandit list --min-importance moderate
 ```
 
 ### Show a session transcript
@@ -71,15 +84,15 @@ session-bandit show 342647fa --agent claude
 ### Search across sessions
 
 ```sh
-session-bandit search "tool approval" --pretty
-session-bandit search "apply_patch" --agent codex --pretty
+session-bandit search "tool approval"
+session-bandit search "apply_patch" --agent codex
 ```
 
 ### Extract a session digest (the key feature for handoffs/memories)
 
 ```sh
 # Structured digest (JSON) — substance score, files, commands, errors, key turns
-session-bandit extract 342647fa-5bf --pretty
+session-bandit extract 342647fa-5bf
 
 # Wrap the digest in a ready-to-send synthesis prompt
 session-bandit extract 342647fa-5bf --prompt handoff
@@ -92,7 +105,8 @@ session-bandit extract 342647fa-5bf --full --prompt handoff
 ### Check parsing health
 
 ```sh
-session-bandit doctor --pretty
+session-bandit doctor
+session-bandit doctor --agent codex
 ```
 
 ## Writing a handoff note
@@ -101,18 +115,19 @@ When asked to write a handoff note from a previous session:
 
 1. **Find the session.** If the user gives a session ID, use it directly. Otherwise, list recent sessions and pick the relevant one:
    ```sh
-   session-bandit list --sort importance --pretty
+   session-bandit list --sort importance
    ```
    Or search for a topic:
    ```sh
-   session-bandit search "the topic" --pretty
+   session-bandit search "the topic"
    ```
+   Add `--pretty` only if you need a table/excerpt for manual browsing.
 
 2. **Generate the digest with a handoff prompt:**
    ```sh
    session-bandit extract <sessionId> --prompt handoff
    ```
-   This emits a structured digest (substance score, files written, errors, goal, final state) wrapped in a synthesis prompt that tells you what to write.
+   This emits a structured digest (substance score, files written, errors, summaries/recaps, goal, final state) wrapped in a synthesis prompt that tells you what to write.
 
 3. **Write the handoff.** The prompt asks you to cover: the goal, what was done, the current state, and what is left to do. Use the digest's structured data (files written, errors, key turns) as the factual basis. Keep it concise — a returning agent needs the state, not the full history.
 
@@ -135,6 +150,7 @@ When asked to create a memory note from a past session:
 
 - The `--prompt handoff` and `--prompt memory` templates are first drafts. Feel free to adapt the output format to the user's needs — the digest data is the valuable part, not the template text.
 - Use `--full` when you need the complete transcript for context (e.g. complex multi-step work). Without `--full`, the digest is compact and may omit details.
+- Claude recaps and Codex compactions are surfaced as `summary` messages and included in extracts. Treat them as useful synthesis context, but still ground handoffs and memories in the digest's files, errors, tests, and final turns.
 - The substance score measures *activity* (tool calls, file writes, test runs), not *significance*. A short session can contain a critical decision. Read the key turns, not just the score.
 - Session IDs can be specified as prefixes (e.g. `342647fa` instead of the full UUID).
-- Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files.
+- Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files, including format drift, injection markers, unrecognized types, and silent skips. Use `--agent claude` or `--agent codex` to narrow the check.
