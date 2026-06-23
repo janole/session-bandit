@@ -304,6 +304,67 @@ describe("list command", () =>
         const { stdout } = runCommand(makeListCommand, ["--pretty"]);
         expect(stdout).toContain("tier");
     });
+
+    it("--since with absolute date keeps sessions at/after that date", () => 
+    {
+        const { stdout } = runCommand(makeListCommand, [
+            "--since",
+            "2026-06-15",
+        ]);
+        const lines = stdout.split("\n").filter(Boolean);
+        // 06-15 and 06-18 survive; 06-10 dropped
+        expect(lines).toHaveLength(2);
+        const ids = lines.map((l) => JSON.parse(l).sessionId);
+        expect(ids).toContain("claude-aaaa-0001");
+        expect(ids).toContain("codex-bbbb-0002");
+    });
+
+    it("--until with absolute date keeps sessions at/before that date", () => 
+    {
+        const { stdout } = runCommand(makeListCommand, [
+            "--until",
+            "2026-06-15",
+        ]);
+        const lines = stdout.split("\n").filter(Boolean);
+        // 06-10 and 06-15 survive; 06-18 dropped
+        expect(lines).toHaveLength(2);
+        const ids = lines.map((l) => JSON.parse(l).sessionId);
+        expect(ids).toContain("claude-cccc-0003");
+        expect(ids).toContain("claude-aaaa-0001");
+    });
+
+    it("--since + --until narrows to a window", () => 
+    {
+        const { stdout } = runCommand(makeListCommand, [
+            "--since",
+            "2026-06-14",
+            "--until",
+            "2026-06-17",
+        ]);
+        const lines = stdout.split("\n").filter(Boolean);
+        expect(lines).toHaveLength(1);
+        expect(JSON.parse(lines[0]!).sessionId).toBe("claude-aaaa-0001");
+    });
+
+    it("invalid --since errors", () => 
+    {
+        const { stderr, exitCode } = runCommand(makeListCommand, [
+            "--since",
+            "bogus",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Invalid --since");
+    });
+
+    it("invalid --until errors", () => 
+    {
+        const { stderr, exitCode } = runCommand(makeListCommand, [
+            "--until",
+            "not-a-date",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Invalid --until");
+    });
 });
 
 describe("show command", () => 
@@ -419,5 +480,47 @@ describe("search command", () =>
             "--pretty",
         ]);
         expect(stdout).toContain("No matches found");
+    });
+
+    it("--since filters hits to messages at/after that time", () => 
+    {
+        const { stdout } = runCommand(makeSearchCommand, [
+            "bug",
+            "--since",
+            "2026-06-18",
+        ]);
+        const lines = stdout.split("\n").filter(Boolean);
+        // Only the codex-bbbb-0002 hit (2026-06-18) survives; both claude
+        // hits are on 2026-06-15.
+        expect(lines).toHaveLength(1);
+        const hit = JSON.parse(lines[0]!);
+        expect(hit.agent).toBe("codex");
+    });
+
+    it("--until filters hits to messages at/before that time", () => 
+    {
+        const { stdout } = runCommand(makeSearchCommand, [
+            "bug",
+            "--until",
+            "2026-06-15",
+        ]);
+        const lines = stdout.split("\n").filter(Boolean);
+        // Both claude-aaaa hits survive (2026-06-15); codex hit (2026-06-18) dropped.
+        expect(lines).toHaveLength(2);
+        for (const l of lines)
+        {
+            expect(JSON.parse(l).agent).toBe("claude");
+        }
+    });
+
+    it("invalid --since errors", () => 
+    {
+        const { stderr, exitCode } = runCommand(makeSearchCommand, [
+            "bug",
+            "--since",
+            "bogus",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Invalid --since");
     });
 });

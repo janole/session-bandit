@@ -71,6 +71,10 @@ session-bandit list --sort importance
 
 # Drop trivial sessions
 session-bandit list --min-importance moderate
+
+# Limit to a time period: relative (7d, 24h, 2w, 3m) or absolute date
+session-bandit list --since 7d
+session-bandit list --since 2026-06-01 --until 2026-06-15
 ```
 
 ### Show a session transcript
@@ -86,6 +90,7 @@ session-bandit show 342647fa --agent claude
 ```sh
 session-bandit search "tool approval"
 session-bandit search "apply_patch" --agent codex
+session-bandit search "adapter" --since 3d --pretty
 ```
 
 ### Extract a session digest (the key feature for handoffs/memories)

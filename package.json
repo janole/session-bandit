@@ -1,7 +1,7 @@
 {
   "name": "session-bandit",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Search, browse, and extract information from your coding agent sessions.",
   "license": "MIT",
   "author": "Jan Ole Suhr",
