@@ -82,10 +82,33 @@ kind of payload to expect:
 | `turn_context` | `{ turn_id, cwd, model, approval_policy, ... }` | capture `model`, `cwd` |
 | `response_item` | a message / reasoning / `*_call` / `*_call_output` (see below) | parse as an item |
 | `event_msg` | `{ type: "task_started" \| "task_complete" \| "token_count" \| ... }` | **skipped** (UI/token events) |
-| `compacted` | compacted history | **skipped** |
+| `compacted` | `{ message: "", replacement_history: [<full prior messages>] }` | emit as a `summary`/`compaction` marker |
 
 A real modern session opens with `session_meta`, then `turn_context`, then a
-mix of `response_item` (the actual conversation) and `event_msg` (noise).
+mix of `response_item` (the actual conversation) and `event_msg` (noise). A
+`compacted` line marks a context-window compaction.
+
+### The `compacted` envelope (context-window compaction)
+
+When the context window fills, Codex replaces older context with a compacted
+view and records a `compacted` envelope:
+
+```json
+{ "timestamp": "…", "type": "compacted",
+  "payload": { "message": "",
+    "replacement_history": [ {"type":"message","role":"user", …}, … ] } }
+```
+
+The adapter emits this as a **`summary` message with `subtype: "compaction"`**.
+The payload's `.message` is empty in real data (0/43 in a survey), so the note
+is derived from `replacement_history.length`:
+`"Context compacted: N prior messages replaced."`
+
+**The heavy `replacement_history` is deliberately not carried.** A survey of all
+43 compactions on disk found 99% of those messages already appear as earlier
+`response_item` lines in the same file (the adapter already captured them as
+normal turns). So the compaction is a pure marker, and the (median 43 KB,
+max 186 KB) redundant history is dropped — no data loss.
 
 ## Item shapes (shared across all formats)
 
