@@ -1,7 +1,7 @@
 import { Command } from "commander";
 
 import { parseTier,printListJson, printListPretty } from "../format.js";
-import { filterByMinImportance, filterSessions, isValidAgent, type ScanFn, sortByImportance, sortByRecent } from "../scan.js";
+import { filterByMinImportance, filterByTime, filterSessions, isValidAgent, parseTimeArg, type ScanFn, sortByImportance, sortByRecent } from "../scan.js";
 
 export function makeListCommand(scanFn: ScanFn): Command 
 {
@@ -17,6 +17,14 @@ export function makeListCommand(scanFn: ScanFn): Command
         .option(
             "--min-importance <tier>",
             "Drop sessions below this tier (trivial|light|moderate|substantive|heavy)",
+        )
+        .option(
+            "--since <date>",
+            "Only sessions started at/after this time (absolute date or relative: 7d, 24h, 2w, 3m)",
+        )
+        .option(
+            "--until <date>",
+            "Only sessions started at/before this time (absolute date or relative: 7d, 24h, 2w, 3m)",
         )
         .option("--pretty", "Print a human-readable table instead of JSON lines")
         .action((opts: ListOptions) => 
@@ -51,11 +59,31 @@ export function makeListCommand(scanFn: ScanFn): Command
                 }
             }
 
+            const since = opts.since !== undefined ? parseTimeArg(opts.since, undefined, "start") : null;
+            if (opts.since !== undefined && !since) 
+            {
+                console.error(
+                    `Invalid --since value: "${opts.since}". Use a date (2026-06-01) or relative (7d, 24h, 2w, 3m).`,
+                );
+                process.exitCode = 1;
+                return;
+            }
+            const until = opts.until !== undefined ? parseTimeArg(opts.until, undefined, "end") : null;
+            if (opts.until !== undefined && !until) 
+            {
+                console.error(
+                    `Invalid --until value: "${opts.until}". Use a date (2026-06-01) or relative (7d, 24h, 2w, 3m).`,
+                );
+                process.exitCode = 1;
+                return;
+            }
+
             let sessions = scanFn();
             sessions = filterSessions(sessions, {
                 agent: opts.agent,
                 project: opts.project,
             });
+            sessions = filterByTime(sessions, { since, until });
             if (minTier) 
             {
                 sessions = filterByMinImportance(sessions, minTier);
@@ -82,5 +110,7 @@ interface ListOptions {
     project?: string;
     sort?: string;
     minImportance?: string;
+    since?: string;
+    until?: string;
     pretty?: boolean;
 }

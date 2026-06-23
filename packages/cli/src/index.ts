@@ -16,7 +16,7 @@ const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { versi
 const VERSION = packageJson.version ?? "0.0.0";
 
 // Re-export core for programmatic use.
-export { filterByMinImportance, filterSessions, scanAll, type ScanFn,sortByImportance, sortByRecent } from "./scan.js";
+export { filterByMinImportance, filterByTime, filterSessions, inTimeWindow, parseTimeArg, scanAll, type ScanFn,sortByImportance, sortByRecent } from "./scan.js";
 export {
     type AdapterConfig,
     type AgentName,

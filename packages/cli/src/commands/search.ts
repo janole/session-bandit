@@ -1,7 +1,7 @@
 import { Command } from "commander";
 
 import { printSearchJson, printSearchPretty, type SearchHit } from "../format.js";
-import { filterSessions, isValidAgent, type ScanFn } from "../scan.js";
+import { filterSessions, inTimeWindow, isValidAgent, parseTimeArg, type ScanFn } from "../scan.js";
 
 export function makeSearchCommand(scanFn: ScanFn): Command 
 {
@@ -11,6 +11,14 @@ export function makeSearchCommand(scanFn: ScanFn): Command
         .argument("<query>", "Case-insensitive search query")
         .option("-a, --agent <name>", "Filter by agent (claude | codex)")
         .option("-p, --project <path>", "Filter by project (substring match)")
+        .option(
+            "--since <date>",
+            "Only messages at/after this time (absolute date or relative: 7d, 24h, 2w, 3m)",
+        )
+        .option(
+            "--until <date>",
+            "Only messages at/before this time (absolute date or relative: 7d, 24h, 2w, 3m)",
+        )
         .option("--pretty", "Print human-readable results instead of JSON lines")
         .action((query: string, opts: SearchOptions) => 
         {
@@ -22,6 +30,26 @@ export function makeSearchCommand(scanFn: ScanFn): Command
                 process.exitCode = 1;
                 return;
             }
+
+            const since = opts.since !== undefined ? parseTimeArg(opts.since, undefined, "start") : null;
+            if (opts.since !== undefined && !since) 
+            {
+                console.error(
+                    `Invalid --since value: "${opts.since}". Use a date (2026-06-01) or relative (7d, 24h, 2w, 3m).`,
+                );
+                process.exitCode = 1;
+                return;
+            }
+            const until = opts.until !== undefined ? parseTimeArg(opts.until, undefined, "end") : null;
+            if (opts.until !== undefined && !until) 
+            {
+                console.error(
+                    `Invalid --until value: "${opts.until}". Use a date (2026-06-01) or relative (7d, 24h, 2w, 3m).`,
+                );
+                process.exitCode = 1;
+                return;
+            }
+            const timeWindow = { since, until };
 
             let sessions = scanFn();
             sessions = filterSessions(sessions, {
@@ -36,7 +64,7 @@ export function makeSearchCommand(scanFn: ScanFn): Command
                 for (let i = 0; i < s.messages.length; i++) 
                 {
                     const msg = s.messages[i]!;
-                    if (msg.text.toLowerCase().includes(q)) 
+                    if (msg.text.toLowerCase().includes(q) && inTimeWindow(msg.timestamp, timeWindow)) 
                     {
                         hits.push({
                             agent: s.agent,
@@ -65,5 +93,7 @@ export function makeSearchCommand(scanFn: ScanFn): Command
 interface SearchOptions {
     agent?: string;
     project?: string;
+    since?: string;
+    until?: string;
     pretty?: boolean;
 }
