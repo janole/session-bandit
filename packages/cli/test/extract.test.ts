@@ -34,12 +34,13 @@ function heavySession(): Session
         startedAt: "2026-06-01T10:00:00.000Z",
         endedAt: "2026-06-01T11:00:00.000Z",
         model: "claude-sonnet-4-6",
-        messageCount: 4,
+        messageCount: 5,
         messages: [
             { role: "user", text: "Refactor the parser.", toolCalls: [], timestamp: "2026-06-01T10:00:00.000Z" },
             { role: "assistant", text: "On it.", toolCalls: [], timestamp: "2026-06-01T10:00:05.000Z" },
             { role: "assistant", text: "", toolCalls: calls, timestamp: "2026-06-01T10:05:00.000Z" },
             { role: "assistant", text: "Done, tests pass.", toolCalls: [], timestamp: "2026-06-01T10:59:00.000Z" },
+            { role: "summary", subtype: "recap", text: "Refactored the parser; tests pass. Next: update the README.", toolCalls: [], timestamp: "2026-06-01T11:00:00.000Z" },
         ],
     };
 }
@@ -118,6 +119,16 @@ describe("extract command", () =>
         expect(d.keyTurns.goal).toBe("Refactor the parser.");
     });
 
+    it("includes runtime summaries (recaps) in the digest", () => 
+    {
+        const { stdout, exitCode } = runCommand(["heavy-0001"]);
+        expect(exitCode).toBe(0);
+        const d = JSON.parse(stdout);
+        expect(d.summaries).toHaveLength(1);
+        expect(d.summaries[0].subtype).toBe("recap");
+        expect(d.summaries[0].text).toContain("Next: update the README.");
+    });
+
     it("matches by prefix", () => 
     {
         const { stdout, exitCode } = runCommand(["heavy"]);
@@ -157,6 +168,9 @@ describe("extract command", () =>
         expect(stdout).toContain("handoff");
         expect(stdout).toContain("Refactor the parser.");
         expect(stdout).toContain("structured digest (JSON)");
+        // the recap feeds the synthesis prompt
+        expect(stdout).toContain("recaps/summaries");
+        expect(stdout).toContain("Next: update the README.");
     });
 
     it("--prompt memory wraps the digest in a memory prompt", () => 
@@ -180,7 +194,8 @@ describe("extract command", () =>
         expect(exitCode).toBe(0);
         const d = JSON.parse(stdout);
         expect(Array.isArray(d.transcript)).toBe(true);
-        expect(d.transcript.length).toBe(4);
+        // 4 user/assistant turns + 1 away_summary recap
+        expect(d.transcript.length).toBe(5);
     });
 
     it("omits transcript without --full", () => 

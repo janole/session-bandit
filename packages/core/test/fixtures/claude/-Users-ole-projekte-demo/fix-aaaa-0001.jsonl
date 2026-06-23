@@ -6,6 +6,7 @@
 {"parentUuid":"u2","isSidechain":false,"type":"assistant","message":{"model":"claude-sonnet-4-6","id":"msg_a2","type":"message","role":"assistant","content":[{"type":"text","text":"Now let me run the tests."},{"type":"tool_use","id":"toolu_002","name":"Bash","input":{"command":"npm test"},"caller":{"type":"direct"}}],"stop_reason":"tool_use"},"uuid":"a2","timestamp":"2026-06-01T10:00:10.000Z"}
 {"parentUuid":"a2","isSidechain":false,"promptId":"p2","type":"user","message":{"role":"user","content":[{"tool_use_id":"toolu_002","type":"tool_result","content":"Error: tests failed","is_error":true}]},"uuid":"u3","timestamp":"2026-06-01T10:00:12.000Z"}
 {"parentUuid":"u3","isSidechain":false,"type":"system","subtype":"turn_duration","durationMs":12000,"messageCount":6,"timestamp":"2026-06-01T10:00:12.000Z","uuid":"s1","cwd":"/Users/ole/projekte/demo","gitBranch":"main","sessionId":"fix-aaaa-0001","version":"2.1.170"}
+{"parentUuid":"s1","isSidechain":false,"type":"system","subtype":"away_summary","content":"Reviewed commit abc123: the fix looks good but tests fail. Next: update the test to expect the new value. (disable recaps in /config)","timestamp":"2026-06-01T11:30:00.000Z","uuid":"s2","cwd":"/Users/ole/projekte/demo","gitBranch":"main","sessionId":"fix-aaaa-0001","version":"2.1.170"}
 {"type":"ai-title","aiTitle":"Review commit abc123","sessionId":"fix-aaaa-0001"}
 this is a malformed line that should be skipped
 {"type":"unknown-future-type","foo":"bar"}

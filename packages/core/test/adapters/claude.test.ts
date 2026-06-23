@@ -84,7 +84,8 @@ describe("claudeAdapter.parse", () =>
     it("captures startedAt and endedAt from timestamps", () => 
     {
         expect(session.startedAt).toBe("2026-06-01T10:00:00.000Z");
-        expect(session.endedAt).toBe("2026-06-01T10:00:12.000Z");
+        // endedAt tracks the last line with a timestamp — the away_summary recap
+        expect(session.endedAt).toBe("2026-06-01T11:30:00.000Z");
     });
 
     it("captures the assistant model", () => 
@@ -98,7 +99,29 @@ describe("claudeAdapter.parse", () =>
         // 1 user (initial) + 2 assistant + 2 user tool_result-only turns (no text msg emitted)
         expect(roles.filter((r) => r === "user")).toHaveLength(1);
         expect(roles.filter((r) => r === "assistant")).toHaveLength(2);
-        expect(session.messageCount).toBe(3);
+        // 3 user/assistant turns + 1 away_summary recap
+        expect(session.messageCount).toBe(4);
+    });
+
+    it("emits away_summary recaps as summary messages with subtype recap", () => 
+    {
+        const recaps = session.messages.filter((m) => m.role === "summary");
+        expect(recaps).toHaveLength(1);
+        const recap = recaps[0]!;
+        expect(recap.subtype).toBe("recap");
+        expect(recap.text).toContain("Reviewed commit abc123");
+        expect(recap.text).toContain("Next:");
+        expect(recap.timestamp).toBe("2026-06-01T11:30:00.000Z");
+        // recaps carry no tool calls
+        expect(recap.toolCalls).toEqual([]);
+    });
+
+    it("still skips turn_duration and other metadata-only system lines", () => 
+    {
+        // turn_duration must NOT become a message — only away_summary is content-bearing
+        expect(session.messages.some((m) => m.text.includes("turn_duration"))).toBe(false);
+        const systemMsgs = session.messages.filter((m) => m.role === "system");
+        expect(systemMsgs).toHaveLength(0);
     });
 
     it("joins assistant text blocks and excludes thinking", () => 

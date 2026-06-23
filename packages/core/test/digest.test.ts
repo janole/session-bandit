@@ -487,6 +487,60 @@ describe("computeDigest key turns & tools", () =>
     });
 });
 
+// --- computeDigest: summaries (recaps / compactions) ----------------------
+
+describe("computeDigest summaries", () => 
+{
+    it("extracts summary-role messages with their subtype and text", () => 
+    {
+        const s = setMessages(session(), [
+            msg({ role: "user", text: "Review the PR." }),
+            msg({ role: "assistant", text: "Done." }),
+            msg({ role: "summary", subtype: "recap", text: "Reviewed the PR. Next: merge it.", timestamp: "2026-06-01T11:00:00.000Z" }),
+            msg({ role: "summary", subtype: "compaction", text: "Context compacted: 5 prior messages replaced.", timestamp: "2026-06-01T11:30:00.000Z" }),
+        ]);
+        const d = computeDigest(s);
+        expect(d.summaries).toHaveLength(2);
+        expect(d.summaries[0]).toEqual({
+            subtype: "recap",
+            text: "Reviewed the PR. Next: merge it.",
+            timestamp: "2026-06-01T11:00:00.000Z",
+        });
+        expect(d.summaries[1]?.subtype).toBe("compaction");
+    });
+
+    it("returns an empty summaries array when there are no summaries", () => 
+    {
+        const s = setMessages(session(), [
+            msg({ role: "user", text: "hi" }),
+            msg({ role: "assistant", text: "hello" }),
+        ]);
+        expect(computeDigest(s).summaries).toEqual([]);
+    });
+
+    it("ignores summary-role messages without a subtype", () => 
+    {
+        const s = setMessages(session(), [
+            msg({ role: "summary", text: "no subtype" }),
+            msg({ role: "summary", subtype: "recap", text: "with subtype" }),
+        ]);
+        expect(computeDigest(s).summaries).toHaveLength(1);
+        expect(computeDigest(s).summaries[0]?.text).toBe("with subtype");
+    });
+
+    it("keeps summaries chronological and truncates very long recap text", () => 
+    {
+        const long = "x".repeat(5000);
+        const s = setMessages(session(), [
+            msg({ role: "summary", subtype: "recap", text: long }),
+            msg({ role: "summary", subtype: "recap", text: "later recap" }),
+        ]);
+        const d = computeDigest(s);
+        expect(d.summaries[0]?.text).toContain("…[truncated]");
+        expect(d.summaries[1]?.text).toBe("later recap");
+    });
+});
+
 // --- computeDigest: full transcript & identity ---------------------------
 
 describe("computeDigest misc", () => 

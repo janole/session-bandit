@@ -107,10 +107,32 @@ describe("codexAdapter.parse — modern envelope .jsonl", () =>
     it("emits user and assistant messages, skipping developer/reasoning/event_msg", () => 
     {
         const roles = session.messages.map((m) => m.role);
-        // 2 user + 3 assistant text + 3 tool-call assistant msgs = 8
+        // 2 user + 3 assistant text + 3 tool-call assistant msgs = 8, + 1 compaction summary = 9
         expect(roles.filter((r) => r === "user")).toHaveLength(2);
         expect(roles.filter((r) => r === "assistant")).toHaveLength(6);
-        expect(session.messageCount).toBe(8);
+        expect(roles.filter((r) => r === "summary")).toHaveLength(1);
+        expect(session.messageCount).toBe(9);
+    });
+
+    it("emits compacted envelopes as summary messages with subtype compaction", () => 
+    {
+        const compactions = session.messages.filter((m) => m.role === "summary");
+        expect(compactions).toHaveLength(1);
+        const c = compactions[0]!;
+        expect(c.subtype).toBe("compaction");
+        // .message is empty in the fixture, so the note is derived from replacement_history
+        expect(c.text).toContain("Context compacted");
+        expect(c.text).toContain("2 prior messages");
+        expect(c.timestamp).toBe("2026-06-19T10:00:09.500Z");
+        expect(c.toolCalls).toEqual([]);
+    });
+
+    it("does not duplicate replacement_history messages from the compaction", () => 
+    {
+        // the compaction's replacement_history mirrors earlier response_items; the two
+        // messages it references must not be double-counted (they already appeared earlier)
+        const userMsgs = session.messages.filter((m) => m.role === "user");
+        expect(userMsgs).toHaveLength(2); // unchanged from before the compaction was added
     });
 
     it("joins assistant output_text and excludes reasoning", () => 
