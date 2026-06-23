@@ -151,16 +151,16 @@ consumption and piping. Use `--pretty` for terminal browsing.
 ```
 agent   sessionId     startedAt            msgs  model              project
 --------------------------------------------------------------------------------
-codex   019ee0ad-2eb  2026-06-19T16:18:26  64    gpt-5.5            /Users/ole/projekte/botbandit-ng
-claude  342647fa-5bf  2026-06-19T10:38:38  153   claude-opus-4-8    /Users/ole/projekte/botbandit-ng
-codex   019eda02-434  2026-06-18T09:14:02  65    gpt-5.5            /Users/ole/projekte/botbandit-ng
+codex   019ee0ad-2eb  2026-06-19T16:18:26  64    gpt-5.5            /Users/ole/projects/chat-bandit
+claude  342647fa-5bf  2026-06-19T10:38:38  153   claude-opus-4-8    /Users/ole/projects/chat-bandit
+codex   019eda02-434  2026-06-18T09:14:02  65    gpt-5.5            /Users/ole/projects/chat-bandit
 ...
 ```
 
 `list` (JSON lines):
 
 ```json
-{"agent":"claude","sessionId":"342647fa-5bf0-41b4-b21d-1e7d0d78b371","project":"/Users/ole/projekte/botbandit-ng","cwd":"/Users/ole/projekte/botbandit-ng","startedAt":"2026-06-19T10:38:38.122Z","endedAt":"2026-06-19T14:41:00.972Z","model":"claude-opus-4-8","messageCount":153}
+{"agent":"claude","sessionId":"342647fa-5bf0-41b4-b21d-1e7d0d78b371","project":"/Users/ole/projects/chat-bandit","cwd":"/Users/ole/projects/chat-bandit","startedAt":"2026-06-19T10:38:38.122Z","endedAt":"2026-06-19T14:41:00.972Z","model":"claude-opus-4-8","messageCount":153}
 ```
 
 `show <sessionId>`:
@@ -168,7 +168,7 @@ codex   019eda02-434  2026-06-18T09:14:02  65    gpt-5.5            /Users/ole/p
 ```
 Session: 342647fa-5bf0-41b4-b21d-1e7d0d78b371
 Agent:   claude
-Project: /Users/ole/projekte/botbandit-ng
+Project: /Users/ole/projects/chat-bandit
 Model:   claude-opus-4-8
 Started: 2026-06-19T10:38:38.122Z
 Messages: 153
