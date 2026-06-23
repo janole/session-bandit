@@ -46,9 +46,11 @@ For documentation-only changes, do not run the full gate by default.
   4-space indent, double quotes, and semicolons.
 - Prefer explicit, small functions over speculative abstractions.
 - Add or update tests when behavior changes.
+- Add a one-liner JSDoc comment (`/** ... */`) to every exported function, type,
+  and class — skip only when the name alone is unambiguous (e.g. `isRecord`).
 - Keep comments concise and focused on non-obvious intent.
-- Do not rewrite existing code for style. Only touch code directly required by
-  the task.
+- Do not rewrite existing code for style. Only touch code that is directly
+  required by the task.
 - Do **not** remove TODO comments unless they are implemented or fixed.
 - Do **not** remove unrelated uncommented code.
 
