@@ -112,6 +112,39 @@ default** — it carries the signals, the file/command summaries, and a few key
 turns, *not* the whole transcript. `extract --full` adds the complete de-noised
 transcript (`transcript: Message[]`) for cases that want full ingestion.
 
+### Runtime-generated summaries (recaps & compactions)
+
+Claude and Codex both emit runtime-generated summaries mid-session — Claude
+writes an `away_summary` **recap** when you return after being away (what was
+done, what's next); Codex writes a `compacted` envelope when the context window
+fills and older context is replaced. These were previously dropped; now the
+adapters emit them as `summary`-role messages (`subtype: "recap"` /
+`"compaction"`) and `computeDigest()` collects them into `summaries`.
+
+```ts
+interface DigestSummary {
+  subtype: string;            // "recap" | "compaction" — the semantic kind
+  text: string;               // the recap content, or a compaction's derived note
+  timestamp: string | null;
+}
+```
+
+These are high-signal synthesis fuel: a recap is the agent's own
+natural-language summary of recent work, and a compaction marks where the
+context was pruned. Both appear in the `extract --pretty` "Summaries" section
+and in the `--prompt handoff|memory` templates as "Agent's own recaps/summaries".
+
+- **Recaps** carry real summary text (Claude's top-level `content` field).
+- **Compactions** have an empty `.message` in real data, so the note is
+  derived: `"Context compacted: N prior messages replaced."` The heavy
+  `replacement_history` is *not* carried — a survey of all on-disk
+  compactions found 99% of those messages already appear as earlier
+  `response_item` lines the adapter already captured, so it's redundant. No
+  data loss. See [format-codex.md](format-codex.md) and [format-claude.md](format-claude.md).
+
+The list is capped at `MAX_SUMMARIES = 50` (a long session can accumulate many
+recaps), kept in chronological order. See `extractSummaries()` in `digest.ts`.
+
 ### Why this shape
 
 Every field is either (a) something an LLM needs to write a good handoff
