@@ -250,7 +250,7 @@ handles all three transparently.
 pnpm install          # install deps
 pnpm -r build         # build both packages
 pnpm -r typecheck     # type-check (strict mode)
-pnpm -r test          # run all tests (139 tests)
+pnpm -r test          # run all tests
 
 # Run the CLI from source (no build needed, uses tsx):
 pnpm dev list --pretty
@@ -273,7 +273,7 @@ packages/
       adapters/
         claude.ts                Claude Code adapter
         codex.ts                 Codex adapter (3 formats)
-    test/                        fixtures + 91 tests
+    test/                        fixtures + tests
   cli/                           session-bandit — CLI
     src/
       bin.ts                     entry point
@@ -286,7 +286,7 @@ packages/
         search.ts                search command
         extract.ts               extract command
         doctor.ts                doctor command (parsing health)
-    test/                        48 tests
+    test/                        tests
 docs/
   prd.md                         product requirements document
   extract.md                     session extracts & digest design (primary v2 feature)
