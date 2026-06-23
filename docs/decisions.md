@@ -364,3 +364,46 @@ typecheck, but is not a runtime dependency.
 `SKILL.md` includes install instructions for both `npm install -g
 session-bandit` (once published) and from-source fallback. The skill
 templates are first drafts to refine against real LLM outputs.
+
+### 20. Runtime-generated summaries (recaps & compactions) get their own `summary` role
+
+**Decision.** Claude's `away_summary` recaps and Codex's `compacted`
+compactions are emitted as a new `summary` message role (not folded into the
+existing `system` role), each carrying a normalized semantic `subtype`
+(`"recap"` / `"compaction"`) rather than the raw provider string. The Codex
+compaction's heavy `replacement_history` is dropped — the compaction is treated
+as a pure marker with a derived note.
+
+**Context.** Both providers emit runtime-generated summaries mid-session
+(Claude when you return after being away, Codex when the context window fills
+and older context is replaced). The adapters were silently dropping them —
+Claude recaps because `system`/`turn_duration` lines were metadata-only, Codex
+compactions because the envelope type wasn't handled. They were invisible in
+`show`, `search`, `extract`, and the digest.
+
+**Rationale.** A new role was chosen over reusing `system` because `system`
+should mean "system prompt" (the LLM-API convention); recaps and compactions
+are a different category. Reusing `system` would conflate two unrelated
+semantics and foreclose `system`'s natural future meaning. The role name
+`"summary"` is more precise than a broad `"info"` — these are literally
+summaries. Normalized subtypes (`recap`/`compaction`) enable cross-provider
+reasoning; the provider is already on `session.agent`, so the subtype is the
+semantic kind, not the raw provider string.
+
+The compaction payload is dropped because a survey proved 99% of
+`replacement_history` (2100/2108 across all 43 compaction events on disk)
+already appears verbatim as earlier `response_item` lines the adapter already
+captured. Carrying it would put 43 KB–186 KB redundant blobs in the normalized
+model for zero new information. The compaction is treated as a marker with a
+derived note (`"Context compacted: N prior messages replaced."`); if a future
+Codex version ships real summary text in `.message`, the adapter falls back to
+it when non-empty.
+
+**Consequences.** Recaps and compactions are now visible in `show`, `search`,
+and the digest's `summaries[]`, and feed the `--prompt handoff|memory`
+templates as "Agent's own recaps/summaries." A recap carries real summary text;
+a compaction carries the derived marker. The behavior is documented in
+[format-claude.md](format-claude.md) and [format-codex.md](format-codex.md).
+The `system` role stays reserved for a future system-prompt capture. If
+botbandit's own compaction format needs handling, the `summary`/`compaction`
+mapping is ready for it once a botbandit adapter exists.
