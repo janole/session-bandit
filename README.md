@@ -11,11 +11,11 @@ ever done with every agent.
 ## Features
 
 - **Unified listing** across Claude Code and Codex sessions, sorted by most
-  recent first, with filters by agent and project.
+  recent first, with filters by agent, project, and time period.
 - **Full transcripts** — read any session's normalized transcript with tool
   calls, inputs, outputs, and status indicators.
-- **Full-text search** across all session messages, with agent and project
-  filters.
+- **Full-text search** across all session messages, with agent, project, and
+  time-period filters.
 - **Agent recaps & compactions captured** — Claude's while-you-were-away recaps
   and Codex's context-window compactions are no longer silently dropped; they're
   carried as `summary` messages (with a `recap` / `compaction` subtype) and fed
@@ -120,14 +120,23 @@ session-bandit list --sort importance --pretty
 
 # Drop the trivial / hello-only sessions
 session-bandit list --min-importance moderate --pretty
+
+# Limit to the last week (relative: 7d, 24h, 2w, 3m)
+session-bandit list --since 7d --pretty
+
+# Limit to a date window
+session-bandit list --since 2026-06-01 --until 2026-06-15 --pretty
+
+# Search within a time period
+session-bandit search "adapter" --since 3d --pretty
 ```
 
 ### Commands
 
 ```
-session-bandit list [--agent <name>] [--project <path>] [--sort recent|importance] [--min-importance <tier>] [--pretty]
+session-bandit list [--agent <name>] [--project <path>] [--sort recent|importance] [--min-importance <tier>] [--since <date>] [--until <date>] [--pretty]
 session-bandit show <sessionId> [--agent <name>]
-session-bandit search <query> [--agent <name>] [--project <path>] [--pretty]
+session-bandit search <query> [--agent <name>] [--project <path>] [--since <date>] [--until <date>] [--pretty]
 session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [--full] [--pretty]
 ```
 
@@ -137,6 +146,8 @@ session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [-
 | `-p, --project <path>` | Filter by project (substring match on project/cwd) |
 | `--sort <field>` | `list`: sort by `recent` (default) or `importance` (substance score) |
 | `--min-importance <tier>` | `list`: drop sessions below tier (`trivial`\|`light`\|`moderate`\|`substantive`\|`heavy`) |
+| `--since <date>` | `list`/`search`: only entries at/after this time — absolute date (`2026-06-01`) or relative (`7d`, `24h`, `2w`, `3m`) |
+| `--until <date>` | `list`/`search`: only entries at/before this time — absolute date or relative (`7d`, `24h`, `2w`, `3m`) |
 | `--prompt <kind>` | `extract`: wrap the digest in a synthesis prompt (`handoff`\|`memory`) |
 | `--full` | `extract`: include the complete de-noised transcript |
 | `--pretty` | Print human-readable output instead of JSON lines |

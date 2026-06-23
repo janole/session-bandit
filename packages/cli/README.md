@@ -60,6 +60,8 @@ session-bandit list --agent claude --pretty
 session-bandit list --agent codex --pretty
 session-bandit list --project my-repo --pretty
 session-bandit list --sort importance --min-importance moderate --pretty
+session-bandit list --since 7d --pretty
+session-bandit list --since 2026-06-01 --until 2026-06-15 --pretty
 ```
 
 Useful options:
@@ -70,6 +72,8 @@ Useful options:
 | `--project <text>` | Filter by project/cwd substring |
 | `--sort <field>` | `recent` (default) or `importance` |
 | `--min-importance <tier>` | Drop sessions below `trivial`, `light`, `moderate`, `substantive`, or `heavy` |
+| `--since <date>` | Only sessions started at/after this time — absolute date (`2026-06-01`) or relative (`7d`, `24h`, `2w`, `3m`) |
+| `--until <date>` | Only sessions started at/before this time — absolute date or relative |
 | `--pretty` | Print a table instead of JSON lines |
 
 ### `show`
@@ -88,7 +92,12 @@ Search message text across sessions.
 ```sh
 session-bandit search "adapter" --pretty
 session-bandit search "failed test" --agent codex --project session-bandit --pretty
+session-bandit search "adapter" --since 3d --pretty
 ```
+
+`--since`/`--until` filter hits by message timestamp (absolute date or relative
+`7d`, `24h`, `2w`, `3m`). Messages with no timestamp are dropped when a time
+filter is active.
 
 ### `extract`
 
