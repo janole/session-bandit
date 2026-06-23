@@ -14,7 +14,8 @@
     "dev": "tsx packages/cli/src/bin.ts",
     "lint": "eslint . --cache --cache-strategy content",
     "lint:fix": "eslint . --cache --cache-strategy content --fix",
-    "ok": "pnpm run build && pnpm run lint:fix && pnpm run test",
+    "ok": "pnpm run build && pnpm run typecheck && pnpm run lint:fix && pnpm run test",
+    "qa": "pnpm run build && pnpm run typecheck && pnpm run lint && pnpm run test",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
