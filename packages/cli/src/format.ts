@@ -2,7 +2,8 @@ import type { Message, Session, ToolCall } from "@session-bandit/core";
 import { type AgentDoctorReport, type ClaudeDoctorDetails, type CodexDoctorDetails, computeSubstance, type DoctorReport, type ImportanceTier, type SessionDigest } from "@session-bandit/core";
 
 /** A compact session summary for `list` output. */
-export interface SessionSummary {
+export interface SessionSummary
+{
     agent: string;
     sessionId: string;
     project: string | null;
@@ -105,17 +106,22 @@ export function printTranscript(session: Session): void
         `Session: ${session.sessionId}`,
     );
     console.log(`Agent:   ${session.agent}`);
-    if (session.project) {console.log(`Project: ${session.project}`);}
-    if (session.cwd) {console.log(`Cwd:     ${session.cwd}`);}
-    if (session.model) {console.log(`Model:   ${session.model}`);}
+    if (session.project) { console.log(`Project: ${session.project}`); }
+    if (session.cwd) { console.log(`Cwd:     ${session.cwd}`); }
+    if (session.model) { console.log(`Model:   ${session.model}`); }
     console.log(`Started: ${session.startedAt || "(unknown)"}`);
-    if (session.endedAt) {console.log(`Ended:   ${session.endedAt}`);}
+    if (session.endedAt) { console.log(`Ended:   ${session.endedAt}`); }
     console.log(`Messages: ${session.messageCount}`);
     console.log("");
 
-    for (let i = 0; i < session.messages.length; i++) 
+    printMessages(session.messages);
+}
+
+function printMessages(messages: Message[]): void 
+{
+    for (let i = 0; i < messages.length; i++) 
     {
-        const msg = session.messages[i]!;
+        const msg = messages[i]!;
         printMessage(i + 1, msg);
     }
 }
@@ -178,7 +184,8 @@ function printToolCall(tc: ToolCall): void
 
 // ---- search output ----------------------------------------------------------
 
-export interface SearchHit {
+export interface SearchHit
+{
     agent: string;
     sessionId: string;
     messageIndex: number;
@@ -228,8 +235,8 @@ export function printDigestPretty(d: SessionDigest): void
 {
     console.log(`Session:  ${d.sessionId}`);
     console.log(`Agent:    ${d.agent}`);
-    if (d.project) {console.log(`Project:  ${d.project}`);}
-    if (d.model) {console.log(`Model:    ${d.model}`);}
+    if (d.project) { console.log(`Project:  ${d.project}`); }
+    if (d.model) { console.log(`Model:    ${d.model}`); }
     console.log(`Started:  ${d.startedAt || "(unknown)"}`);
     if (d.durationMin !== null) 
     {
@@ -249,14 +256,15 @@ export function printDigestPretty(d: SessionDigest): void
     if (d.files.written.length > 0) 
     {
         console.log(`Files written (${d.files.written.length}):`);
-        for (const f of d.files.written) {console.log(`  ${f}`);}
+        for (const f of d.files.written) { console.log(`  ${f}`); }
         console.log("");
     }
+
     if (d.files.read.length > 0) 
     {
         console.log(`Files read (${d.files.read.length}):`);
-        for (const f of d.files.read.slice(0, 20)) {console.log(`  ${f}`);}
-        if (d.files.read.length > 20) {console.log(`  … and ${d.files.read.length - 20} more`);}
+        for (const f of d.files.read.slice(0, 20)) { console.log(`  ${f}`); }
+        if (d.files.read.length > 20) { console.log(`  … and ${d.files.read.length - 20} more`); }
         console.log("");
     }
 
@@ -309,6 +317,7 @@ export function printDigestPretty(d: SessionDigest): void
         console.log(indent(truncate(d.keyTurns.goal, 600), "  "));
         console.log("");
     }
+
     if (d.keyTurns.finalState.length > 0) 
     {
         console.log("Final state:");
@@ -317,6 +326,13 @@ export function printDigestPretty(d: SessionDigest): void
             console.log(indent(truncate(t, 600), "  "));
         }
         console.log("");
+    }
+
+    if (d.transcript) 
+    {
+        console.log(`Transcript (${d.transcript.length} messages):`);
+        console.log("");
+        printMessages(d.transcript);
     }
 }
 
@@ -517,6 +533,6 @@ function indent(text: string, prefix: string): string
 
 function truncate(text: string, max: number): string 
 {
-    if (text.length <= max) {return text;}
+    if (text.length <= max) { return text; }
     return text.slice(0, max - 1) + "…";
 }
