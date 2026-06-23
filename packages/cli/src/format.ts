@@ -149,6 +149,8 @@ function roleLabel(role: string): string
             return "SYSTEM";
         case "tool":
             return "TOOL";
+        case "summary":
+            return "SUMMARY";
         default:
             return role.toUpperCase();
     }
@@ -289,6 +291,18 @@ export function printDigestPretty(d: SessionDigest): void
         console.log("");
     }
 
+    if (d.summaries.length > 0) 
+    {
+        console.log(`Summaries (${d.summaries.length}):`);
+        for (const s of d.summaries) 
+        {
+            const ts = s.timestamp ? ` [${s.timestamp}]` : "";
+            console.log(`  (${s.subtype})${ts}`);
+            console.log(indent(truncate(s.text, 600), "    "));
+        }
+        console.log("");
+    }
+
     if (d.keyTurns.goal) 
     {
         console.log("Goal:");
@@ -325,6 +339,9 @@ ${d.files.written.map((f) => "  - " + f).join("\n") || "  (none)"}
 Errors:
 ${d.errors.map((e) => "  - " + e.name + (e.output ? ": " + truncate(e.output, 160) : "")).join("\n") || "  (none)"}
 
+Agent's own recaps/summaries (while-you-were-away & compaction notes — high-signal synthesis fuel):
+${d.summaries.map((s) => "  - [" + s.subtype + "] " + truncate(s.text, 400)).join("\n") || "  (none)"}
+
 Goal:
 ${d.keyTurns.goal ?? "(none)"}
 
@@ -342,6 +359,9 @@ Substance: ${d.substance.tier} (score ${d.substance.score}) — ${d.substance.si
 
 Files written:
 ${d.files.written.map((f) => "  - " + f).join("\n") || "  (none)"}
+
+Agent's own recaps/summaries:
+${d.summaries.map((s) => "  - [" + s.subtype + "] " + truncate(s.text, 400)).join("\n") || "  (none)"}
 
 Goal:
 ${d.keyTurns.goal ?? "(none)"}
