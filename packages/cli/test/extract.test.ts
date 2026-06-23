@@ -198,6 +198,17 @@ describe("extract command", () =>
         expect(d.transcript.length).toBe(5);
     });
 
+    it("--pretty --full prints the transcript", () => 
+    {
+        const { stdout, exitCode } = runCommand(["heavy-0001", "--pretty", "--full"]);
+        expect(exitCode).toBe(0);
+        expect(stdout).toContain("Transcript (5 messages):");
+        expect(stdout).toContain("--- #1 USER");
+        expect(stdout).toContain("Refactor the parser.");
+        expect(stdout).toContain("--- #5 SUMMARY");
+        expect(stdout).toContain("Next: update the README.");
+    });
+
     it("omits transcript without --full", () => 
     {
         const { stdout } = runCommand(["heavy-0001"]);
