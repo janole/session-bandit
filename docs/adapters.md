@@ -33,8 +33,9 @@ interface Session {
 }
 
 interface Message {
-  role: "user" | "assistant" | "system" | "tool";
+  role: "user" | "assistant" | "system" | "tool" | "summary";
   text: string;              // human-readable, always a string (never undefined)
+  subtype?: string;          // for `summary`: "recap" | "compaction" — the semantic kind
   toolCalls: ToolCall[];
   timestamp: string | null;  // ISO 8601 or null — never invented
 }
@@ -128,9 +129,11 @@ hand-crafted to exercise the interesting cases:
 
 - `fixtures/claude/-Users-ole-projekte-demo/fix-aaaa-0001.jsonl` — user/assistant
   turns, tool_use + tool_result matching, a malformed line, an unknown line
-  type (both skipped).
+  type (both skipped), and an `away_summary` recap line (emitted as
+  `summary`/`recap`).
 - `fixtures/codex/` — four fixtures covering all three historical formats plus
-  an empty/interrupted session.
+  an empty/interrupted session, and a `compacted` envelope (emitted as
+  `summary`/`compaction`).
 
 **Redact anything sensitive** (real API keys, private paths) when copying. The
 fixtures ship in the repo.
