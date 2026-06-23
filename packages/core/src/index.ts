@@ -22,6 +22,7 @@ export {
     type DigestError,
     type DigestFiles,
     type DigestKeyTurns,
+    type DigestSummary,
     type DigestTestRun,
     type DigestToolUsage,
     extractCodexPatchFiles,
@@ -38,6 +39,7 @@ export { readJsonl } from "./jsonl.js";
 export type {
     AgentName,
     Message,
+    MessageRole,
     Session,
     ToolCall,
 } from "./types.js";

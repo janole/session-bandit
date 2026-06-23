@@ -79,6 +79,15 @@ export interface DigestToolUsage {
     count: number;
 }
 
+/** A runtime-generated summary captured from the transcript (not a user/assistant turn). */
+export interface DigestSummary {
+    /** Semantic kind: "recap" (Claude away_summary) | "compaction" (Codex compacted). */
+    subtype: string;
+    /** The summary text (a recap's content, or a compaction's derived note). */
+    text: string;
+    timestamp: string | null;
+}
+
 export interface SessionDigest {
     // identity
     agent: AgentName;
@@ -112,6 +121,9 @@ export interface SessionDigest {
     // tool usage breakdown (sorted by count desc)
     tools: DigestToolUsage[];
 
+    // runtime-generated summaries (Claude recaps, Codex compactions), chronological
+    summaries: DigestSummary[];
+
     /** Present only when computed with `full: true` — the complete transcript. */
     transcript?: Message[];
 }
@@ -126,6 +138,9 @@ const MAX_TURN_CHARS = 4000;
 
 /** Max entries kept in the errors / failing-commands lists. */
 const MAX_ERROR_ENTRIES = 20;
+
+/** Max recaps/summaries kept in the digest (a long session can have many recaps). */
+const MAX_SUMMARIES = 50;
 
 /** A session is "idle" if it ran longer than this (minutes) with little action. */
 const IDLE_MINUTES = 120;
@@ -375,6 +390,30 @@ function toolUsage(session: Session): DigestToolUsage[]
         .sort((a, b) => b.count - a.count);
 }
 
+// ---- summaries (recaps / compactions) ---------------------------------------
+
+/**
+ * Extract runtime-generated summaries (Claude recaps, Codex compactions) from
+ * the normalized messages, in chronological order. These are `role: "summary"`
+ * messages emitted by the adapters; the rest of the transcript is unaffected.
+ */
+function extractSummaries(session: Session): DigestSummary[] 
+{
+    const out: DigestSummary[] = [];
+    for (const m of session.messages) 
+    {
+        if (m.role === "summary" && m.subtype) 
+        {
+            out.push({
+                subtype: m.subtype,
+                text: truncate(m.text),
+                timestamp: m.timestamp,
+            });
+        }
+    }
+    return out.slice(0, MAX_SUMMARIES);
+}
+
 // ---- key turns -------------------------------------------------------------
 
 function truncate(s: string): string 
@@ -590,6 +629,7 @@ export function computeDigest(
         errors: extractErrors(session),
         keyTurns: extractKeyTurns(session),
         tools: toolUsage(session),
+        summaries: extractSummaries(session),
     };
     if (opts.full) {digest.transcript = session.messages;}
     return digest;

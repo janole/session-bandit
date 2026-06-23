@@ -31,6 +31,9 @@ interface ContentBlock {
 
 interface ClaudeLine {
     type?: string;
+    subtype?: string;
+    /** System lines carry their text in a top-level `content` (not `message.content`). */
+    content?: string;
     sessionId?: string;
     cwd?: string;
     gitBranch?: string;
@@ -197,7 +200,23 @@ function parseClaude(filePath: string): Session
                 }
             }
         }
-    // system / mode / other lines: no message emitted, but we already captured cwd/branch
+        // system / mode / other lines: no message emitted, but we already
+        // captured cwd/branch — except `away_summary` recaps, which are
+        // content-bearing system lines. A recap is Claude's own "while you were
+        // away" summary (what was done + the next step). It is `isMeta: false`
+        // real content, not metadata, so it must not be dropped. Other system
+        // subtypes (e.g. `turn_duration`) are pure metadata and stay skipped.
+        // See docs/format-claude.md.
+        if (line.type === "system" && line.subtype === "away_summary" && line.content) 
+        {
+            messages.push({
+                role: "summary",
+                subtype: "recap",
+                text: line.content,
+                toolCalls: [],
+                timestamp: line.timestamp ?? null,
+            });
+        }
     }
 
     if (!startedAt) 

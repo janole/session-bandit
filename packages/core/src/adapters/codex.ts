@@ -463,7 +463,33 @@ function processEnvelope(env: Envelope, ctx: ParseContext): void
         return;
     }
 
-    // event_msg, compacted, and unknown envelope types — skipped
+    if (type === "compacted" && payload && typeof payload === "object") 
+    {
+    // A compaction replaces older context with a compacted view. Its payload is
+    // { message: "", replacement_history: [<full prior messages>] }. The survey
+    // showed the replacement_history is redundant: 99% of those messages already
+    // appear as earlier `response_item` lines in the same file (already captured
+    // by the adapter as normal turns). So we record only that a compaction
+    // happened — a marker — and do not carry the (median 43 KB) payload. The
+    // `.message` field is always empty in real data, so the note is derived from
+    // the replacement_history length. See docs/format-codex.md.
+        const p = payload as { message?: string; replacement_history?: unknown[] };
+        const rh = Array.isArray(p.replacement_history) ? p.replacement_history : [];
+        const note =
+            typeof p.message === "string" && p.message.trim()
+                ? p.message
+                : `Context compacted: ${rh.length} prior message${rh.length === 1 ? "" : "s"} replaced.`;
+        ctx.messages.push({
+            role: "summary",
+            subtype: "compaction",
+            text: note,
+            toolCalls: [],
+            timestamp: ts,
+        });
+        return;
+    }
+
+    // event_msg and unknown envelope types — skipped
 }
 
 // ---- format helpers --------------------------------------------------------

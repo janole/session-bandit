@@ -28,14 +28,25 @@ export interface Session {
     messages: Message[];
 }
 
+export type MessageRole = "user" | "assistant" | "system" | "tool" | "summary";
+
 export interface Message {
-    role: "user" | "assistant" | "system" | "tool";
+    role: MessageRole;
     /** Human-readable text content (concatenated for assistant). Always a string. */
     text: string;
     /** Tool invocations attached to this message, if any. */
     toolCalls: ToolCall[];
     /** ISO 8601 if present in source, else null. */
     timestamp: string | null;
+    /**
+     * Semantic kind for non-turn roles. For `role: "summary"`, this traces
+     * back where the summary comes from:
+     *  - `"recap"`      — Claude `away_summary` (a while-you-were-away recap)
+     *  - `"compaction"` — Codex `compacted` envelope (context-window compaction)
+     * The provider is already on {@link Session.agent}, so the subtype is the
+     * semantic kind, not the raw provider string.
+     */
+    subtype?: string;
 }
 
 export interface ToolCall {
