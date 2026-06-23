@@ -105,8 +105,9 @@ interface Session {
 }
 
 interface Message {
-  role: "user" | "assistant" | "system" | "tool";
+  role: "user" | "assistant" | "system" | "tool" | "summary";
   text: string;              // human-readable text content (concatenated for assistant)
+  subtype?: string;          // for `summary`: "recap" (Claude away_summary) | "compaction" (Codex compacted)
   toolCalls: ToolCall[];     // tool invocations attached to this message, if any
   timestamp: string | null;  // ISO 8601 if present in source, else null
 }
