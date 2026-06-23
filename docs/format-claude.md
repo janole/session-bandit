@@ -88,6 +88,24 @@ The adapter:
 No message is emitted, but the adapter harvests `cwd`, `gitBranch`, `version`,
 and `timestamp` from these lines.
 
+**`system`** (subtype `away_summary`) — a Claude **recap**. This *is* a
+content-bearing system line, unlike `turn_duration`: Claude writes it when you
+return after being away, summarising what was done lately + the next step. The
+text lives in a top-level `content` field (not `message.content`):
+
+```json
+{"type":"system","subtype":"away_summary",
+ "content":"I reviewed today's 45 commits … Next: your go-ahead to fix both. (disable recaps in /config)",
+ "timestamp":"2026-06-09T19:42:36.278Z","cwd":"…","gitBranch":"main","isMeta":false}
+```
+
+The adapter emits this as a **`summary` message with `subtype: "recap"`** —
+the `{role, subtype}` pair is the normalized home for runtime-generated
+summaries (see `types.ts`). `isMeta` is `false` here, so recap content is real
+and must not be dropped. Every recap ends with the boilerplate
+`(disable recaps in /config)`; that's a UI hint, not data. Other (future)
+`system` subtypes stay metadata-only unless they carry content.
+
 ### Lines we skip
 
 - `mode` / `permission-mode` — session state, not transcript.
