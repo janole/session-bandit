@@ -1,6 +1,6 @@
 # Session Bandit — Product Requirements Document
 
-Status: **Draft** · Last updated: 2026-06-20
+Status: **Draft** · Last updated: 2026-06-23
 
 ## Purpose
 
@@ -26,6 +26,32 @@ turns) from the normalized model — no LLM call. The consuming agent's LLM does
 the natural-language synthesis, fed the digest via a skill. Full design,
 digest shape, and the grounded importance heuristic live in
 [`docs/extract.md`](extract.md).
+
+## Future directions
+
+The v1/v2 foundation is per-session indexing and extraction. Once that is
+stable, Session Bandit can use the same normalized transcripts and digests to
+answer broader workflow questions:
+
+- **Handoffs from sessions.** Given one or more session IDs, produce a concise
+  handoff with the goal, what changed, verification state, open questions, and
+  concrete next steps. The current `extract --prompt handoff` path is the
+  single-session version; future work can support multi-session handoffs for a
+  whole project branch, topic, or time window.
+- **Recently done work by topic.** Group recent sessions by project/topic and
+  synthesize "what changed lately" views: shipped work, files touched, tests
+  run, failed attempts, and decisions made. This should work as an offline
+  digest/search problem first, with an agent LLM doing the final prose
+  synthesis when needed.
+- **Unfinished-session recovery.** Surface sessions that look interrupted,
+  idle, error-heavy, or missing a clean final assistant turn, then suggest what
+  to resume next. This can help find forgotten unfinished tasks and turn the
+  transcript history into a practical "what should I pick up?" queue.
+- **Project/session second brain.** Build a project-scoped memory layer from
+  session digests: recurring topics, decisions, unresolved threads, handoffs,
+  and prior attempts. The default should stay local/offline; any LLM synthesis
+  remains an agent-side consumer of Session Bandit's structured output, not a
+  provider call inside Session Bandit itself.
 
 ## Out of scope for v1
 
