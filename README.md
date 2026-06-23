@@ -16,6 +16,10 @@ ever done with every agent.
   calls, inputs, outputs, and status indicators.
 - **Full-text search** across all session messages, with agent and project
   filters.
+- **Agent recaps & compactions captured** — Claude's while-you-were-away recaps
+  and Codex's context-window compactions are no longer silently dropped; they're
+  carried as `summary` messages (with a `recap` / `compaction` subtype) and fed
+  to the digest so the synthesizing LLM can use them.
 - **Parsing health check** — `doctor` command validates that Session Bandit's
   parsing assumptions match your real session files (format drift, injection
   markers, unrecognized types, silent skips).
@@ -102,8 +106,9 @@ session-bandit search "tool approval" --pretty
 # Search within a specific agent
 session-bandit search "adapter" --agent claude --pretty
 
-# Emit a structured digest of a session (substance, files, key turns)
-# for LLM ingestion — the payoff feature for handoffs / memories
+# Emit a structured digest of a session (substance, files, key turns,
+# recaps/compactions) for LLM ingestion — the payoff feature for
+# handoffs / memories
 session-bandit extract 342647fa-5bf --pretty
 
 # Wrap the digest in a ready-to-send synthesis prompt
@@ -215,6 +220,10 @@ const claudeSessions = indexSessions([{ adapter: claudeAdapter }]);
 //   agent, sessionId, filePath, project, cwd,
 //   startedAt, endedAt, model, messageCount, messages[]
 // }
+//
+// Messages use a `role` of user | assistant | system | tool | summary.
+// `summary` messages carry runtime-generated summaries (Claude recaps,
+// Codex compactions) with a `subtype` of "recap" or "compaction".
 ```
 
 ### Adapter interface
@@ -269,7 +278,7 @@ packages/
       adapter.ts                 Adapter interface
       index.ts                   indexSessions() + exports
       jsonl.ts                   JSONL reader
-      diagnose.ts               doctor diagnostics (format drift, injection markers)
+      diagnose.ts                doctor diagnostics (format drift, injection markers)
       adapters/
         claude.ts                Claude Code adapter
         codex.ts                 Codex adapter (3 formats)
