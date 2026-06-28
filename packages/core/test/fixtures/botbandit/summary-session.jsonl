@@ -1,0 +1,6 @@
+{"type":"session_init","event_id":"01J00000000000000000000021","timestamp":"2026-06-28T12:00:00.000Z","id":"summary-session","schemaVersion":2}
+{"type":"context","event_id":"01J00000000000000000000022","timestamp":"2026-06-28T12:00:01.000Z","cwd":"/Users/ole/projekte/demo","project":"demo"}
+{"type":"message","event_id":"01J00000000000000000000023","timestamp":"2026-06-28T12:00:02.000Z","message":{"role":"user","content":"Implement publishing."}}
+{"type":"compaction","event_id":"01J00000000000000000000024","id":"cmp-1","timestamp":"2026-06-28T12:10:00.000Z","turnCount":4,"historyLength":12,"summary":"Older publishing discussion was summarized.","guidance":"Keep redaction conservative.","boundaryMessageTimestamp":"2026-06-28T12:09:00.000Z"}
+{"type":"memory","event_id":"01J00000000000000000000025","id":"mem-1","timestamp":"2026-06-28T12:20:00.000Z","turnCount":5,"historyLength":14,"title":"Publishing plan","goal":"Publish sessions to the web","summary":"Defined static export and redaction as the first slice.","status":"in_progress","nextSteps":["Implement export-md","Add redaction report"],"tags":["publishing","redaction"],"resources":["docs/format-botbandit.md"],"importance":0.8}
+{"type":"mystery_event","event_id":"01J00000000000000000000026","timestamp":"2026-06-28T12:21:00.000Z","payload":{"note":"doctor should count this"}}

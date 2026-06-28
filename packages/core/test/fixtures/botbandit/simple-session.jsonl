@@ -1,0 +1,9 @@
+{"type":"session_init","event_id":"01J00000000000000000000001","timestamp":"2026-06-28T10:00:00.000Z","id":"simple-session","schemaVersion":2}
+{"type":"config","event_id":"01J00000000000000000000002","config":{"profile":"default","provider":"openai","model":"gpt-5.5"}}
+{"type":"context","event_id":"01J00000000000000000000003","timestamp":"2026-06-28T10:00:01.000Z","cwd":"/Users/ole/projekte/demo","project":"demo","git":{"root":"/Users/ole/projekte/demo","branch":"main"}}
+{"type":"send","event_id":"01J00000000000000000000004","timestamp":"2026-06-28T10:00:02.000Z","id":"send-1","prompt":"Summarize the project.","status":"consumed"}
+{"type":"message","event_id":"01J00000000000000000000005","timestamp":"2026-06-28T10:00:02.100Z","message":{"role":"user","content":"Summarize the project."}}
+{"type":"turn_start","event_id":"01J00000000000000000000006","timestamp":"2026-06-28T10:00:03.000Z","turn_id":"turn-1","config":{"provider":"openai","model":"gpt-5.5"}}
+{"type":"message","event_id":"01J00000000000000000000007","timestamp":"2026-06-28T10:00:04.000Z","turn_id":"turn-1","message":{"role":"assistant","content":[{"type":"text","text":"This is a compact demo project."}]}}
+{"type":"turn_end","event_id":"01J00000000000000000000008","timestamp":"2026-06-28T10:00:05.000Z","turn_id":"turn-1","result":"idle","durationMs":2000}
+{"type":"loop_end","event_id":"01J00000000000000000000009","timestamp":"2026-06-28T10:00:05.500Z","stepCount":1,"toolCallCount":0,"durationMs":3500}

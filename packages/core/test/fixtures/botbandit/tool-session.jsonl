@@ -1,0 +1,8 @@
+{"type":"session_init","event_id":"01J00000000000000000000011","timestamp":"2026-06-28T11:00:00.000Z","id":"tool-session","schemaVersion":2}
+{"type":"config","event_id":"01J00000000000000000000012","config":{"profile":"default","provider":"codex","model":"gpt-5.5"}}
+{"type":"context","event_id":"01J00000000000000000000013","timestamp":"2026-06-28T11:00:01.000Z","cwd":"/Users/ole/projekte/demo"}
+{"type":"message","event_id":"01J00000000000000000000014","timestamp":"2026-06-28T11:00:02.000Z","message":{"role":"user","content":"List the files."}}
+{"type":"message","event_id":"01J00000000000000000000015","timestamp":"2026-06-28T11:00:03.000Z","turn_id":"turn-1","message":{"role":"assistant","content":[{"type":"text","text":"I'll inspect the tree."},{"type":"tool-call","toolCallId":"tc-1","toolName":"bash","input":{"cmd":"ls -1"}}]}}
+{"type":"message","event_id":"01J00000000000000000000016","timestamp":"2026-06-28T11:00:04.000Z","turn_id":"turn-1","message":{"role":"tool","content":[{"type":"tool-result","toolCallId":"tc-1","toolName":"bash","output":"README.md\npackage.json\n"}]}}
+{"type":"message","event_id":"01J00000000000000000000017","timestamp":"2026-06-28T11:00:05.000Z","turn_id":"turn-1","message":{"role":"assistant","content":"The project contains README.md and package.json."}}
+{"type":"loop_end","event_id":"01J00000000000000000000018","timestamp":"2026-06-28T11:00:06.000Z","stepCount":1,"toolCallCount":1}

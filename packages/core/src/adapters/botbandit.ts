@@ -1,0 +1,559 @@
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { basename, join } from "node:path";
+
+import type { Adapter } from "../adapter.js";
+import type { Message, Session, ToolCall } from "../types.js";
+
+/**
+ * BotBandit stores one JSONL event log per session under
+ * `~/.botbandit/sessions/<sessionId>.jsonl`.
+ *
+ * The durable protocol is the `SessionEvent` union from botbandit's
+ * `packages/agent-core/src/types.ts`. The event log is event-sourced: `message`
+ * events carry AI SDK `ModelMessage` history, while `memory` and `compaction`
+ * events carry high-signal generated summaries. Live `stream` events are ignored
+ * because persisted assistant messages supersede them.
+ */
+
+interface BotBanditEvent
+{
+    type?: string;
+    event_id?: string;
+    timestamp?: string;
+    id?: string;
+    parentId?: string;
+    schemaVersion?: number;
+    config?: { profile?: string; provider?: string; model?: string };
+    cwd?: string;
+    project?: string;
+    git?: { root?: string; remote?: string; branch?: string };
+    message?: ProviderMessage;
+    variant?: string;
+    text?: string;
+    format?: string;
+    kind?: string;
+    turn_id?: string;
+    error?: string;
+    stepCount?: number;
+    toolCallCount?: number;
+    durationMs?: number;
+    prompt?: string;
+    status?: string;
+    title?: string;
+    goal?: string;
+    summary?: string;
+    guidance?: string;
+    turnCount?: number;
+    historyLength?: number;
+    nextSteps?: string[];
+    tags?: string[];
+    resources?: string[];
+    importance?: number;
+    subAgentId?: string;
+    agent?: string;
+    task?: string;
+    result?: string;
+}
+
+interface ProviderMessage
+{
+    role?: string;
+    content?: string | ProviderPart[];
+}
+
+interface ProviderPart
+{
+    type?: string;
+    text?: string;
+    reasoning?: string;
+    toolCallId?: string;
+    toolName?: string;
+    input?: unknown;
+    output?: unknown;
+    approvalId?: string;
+    approved?: boolean;
+    reason?: string;
+}
+
+interface ParseContext
+{
+    sessionId: string;
+    startedAt: string;
+    endedAt: string | null;
+    cwd: string | null;
+    project: string | null;
+    model: string | null;
+    messages: Message[];
+    callIndex: Map<string, ToolCall>;
+}
+
+/** Event types known to the BotBandit session adapter. Exported for doctor diagnostics. */
+export const BOTBANDIT_KNOWN_EVENT_TYPES = new Set([
+    "session_init",
+    "config",
+    "approval_routing",
+    "approval_policy",
+    "approval_decided",
+    "approval_deferred",
+    "context",
+    "stream",
+    "message",
+    "send",
+    "turn_start",
+    "turn_end",
+    "cancel",
+    "interrupted",
+    "loop_start",
+    "loop_end",
+    "notice",
+    "tool_display",
+    "lifecycle",
+    "compaction",
+    "memory",
+    "skill",
+    "sub_agent_started",
+    "sub_agent_continued",
+    "sub_agent_finished",
+    "extension",
+]);
+
+/** Parse a BotBandit session file. Never throws. */
+function parseBotBandit(filePath: string): Session
+{
+    const fileName = basename(filePath);
+    let raw: string;
+    try
+    {
+        raw = readFileSync(filePath, "utf8");
+    }
+    catch
+    {
+        return emptySession(filePath, fileName);
+    }
+
+    const ctx: ParseContext = {
+        sessionId: stripExt(fileName),
+        startedAt: "",
+        endedAt: null,
+        cwd: null,
+        project: null,
+        model: null,
+        messages: [],
+        callIndex: new Map(),
+    };
+
+    for (const event of parseLines(raw))
+    {
+        processEvent(event, ctx);
+    }
+
+    return buildSession(filePath, ctx);
+}
+
+function processEvent(event: BotBanditEvent, ctx: ParseContext): void
+{
+    if (!event || typeof event !== "object") { return; }
+
+    if (event.timestamp)
+    {
+        if (!ctx.startedAt) { ctx.startedAt = event.timestamp; }
+        ctx.endedAt = event.timestamp;
+    }
+
+    if (event.type === "session_init")
+    {
+        if (event.id) { ctx.sessionId = event.id; }
+        return;
+    }
+
+    if (event.type === "config")
+    {
+        if (event.config?.model) { ctx.model = event.config.model; }
+        return;
+    }
+
+    if (event.type === "context")
+    {
+        if (event.cwd) { ctx.cwd = event.cwd; }
+        if (event.project) { ctx.project = event.project; }
+        if (!ctx.cwd && event.git?.root) { ctx.cwd = event.git.root; }
+        return;
+    }
+
+    if (event.type === "message" && event.message)
+    {
+        processProviderMessage(event, ctx);
+        return;
+    }
+
+    if (event.type === "memory")
+    {
+        ctx.messages.push({
+            role: "summary",
+            subtype: "memory",
+            text: memoryText(event),
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "compaction")
+    {
+        ctx.messages.push({
+            role: "summary",
+            subtype: "compaction",
+            text: compactionText(event),
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "notice" && event.variant !== "debug" && event.text)
+    {
+        ctx.messages.push({
+            role: "system",
+            text: `[${event.variant ?? "info"}] ${event.text}`,
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "turn_end" && event.error)
+    {
+        ctx.messages.push({
+            role: "system",
+            text: `[error] ${event.error}`,
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "cancel")
+    {
+        ctx.messages.push({
+            role: "system",
+            text: "Cancellation requested.",
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "sub_agent_started")
+    {
+        ctx.messages.push({
+            role: "summary",
+            subtype: "sub_agent",
+            text: `Sub-agent ${event.agent ?? event.subAgentId ?? "unknown"} started${event.title ? `: ${event.title}` : ""}\n\n${event.task ?? ""}`.trim(),
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "sub_agent_continued")
+    {
+        ctx.messages.push({
+            role: "summary",
+            subtype: "sub_agent",
+            text: `Sub-agent ${event.subAgentId ?? "unknown"} continued${event.title ? `: ${event.title}` : ""}\n\n${event.task ?? ""}`.trim(),
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+        return;
+    }
+
+    if (event.type === "sub_agent_finished")
+    {
+        ctx.messages.push({
+            role: "summary",
+            subtype: "sub_agent",
+            text: `Sub-agent ${event.subAgentId ?? "unknown"} finished (${event.status ?? "unknown"}).\n\n${event.result ?? ""}`.trim(),
+            toolCalls: [],
+            timestamp: event.timestamp ?? null,
+        });
+    }
+}
+
+function processProviderMessage(event: BotBanditEvent, ctx: ParseContext): void
+{
+    const message = event.message;
+    if (!message) { return; }
+
+    const timestamp = event.timestamp ?? null;
+
+    if (message.role === "user")
+    {
+        const text = contentText(message.content);
+        if (text)
+        {
+            ctx.messages.push({ role: "user", text, toolCalls: [], timestamp });
+        }
+        return;
+    }
+
+    if (message.role === "assistant")
+    {
+        const parts = Array.isArray(message.content) ? message.content : [];
+        const text = typeof message.content === "string" ? message.content : contentText(parts);
+        const toolCalls = toolCallsFromParts(parts);
+        const normalized: Message = { role: "assistant", text, toolCalls, timestamp };
+        for (const [index, part] of parts.entries())
+        {
+            if (part.type === "tool-call" && part.toolCallId)
+            {
+                const tc = toolCalls[indexForToolCallPart(parts, index)];
+                if (tc) { ctx.callIndex.set(part.toolCallId, tc); }
+            }
+        }
+        if (text || toolCalls.length > 0) { ctx.messages.push(normalized); }
+        return;
+    }
+
+    if (message.role === "tool")
+    {
+        const parts = Array.isArray(message.content) ? message.content : [];
+        const toolResults = toolResultCalls(parts, ctx.callIndex);
+        if (toolResults.length > 0 || typeof message.content === "string")
+        {
+            ctx.messages.push({
+                role: "tool",
+                text: typeof message.content === "string" ? message.content : "",
+                toolCalls: toolResults,
+                timestamp,
+            });
+        }
+        return;
+    }
+
+    if (message.role === "system")
+    {
+        const text = contentText(message.content);
+        if (text) { ctx.messages.push({ role: "system", text, toolCalls: [], timestamp }); }
+    }
+}
+
+function toolCallsFromParts(parts: ProviderPart[]): ToolCall[]
+{
+    return parts
+        .filter(part => part.type === "tool-call")
+        .map(part => ({
+            name: part.toolName ?? "unknown",
+            input: part.input ?? null,
+            status: "unknown",
+            output: null,
+        }));
+}
+
+function toolResultCalls(parts: ProviderPart[], callIndex: Map<string, ToolCall>): ToolCall[]
+{
+    const out: ToolCall[] = [];
+    for (const part of parts)
+    {
+        if (part.type === "tool-result")
+        {
+            const output = stringifyToolOutput(part.output);
+            const status = toolResultStatus(part.output);
+            if (part.toolCallId)
+            {
+                const existing = callIndex.get(part.toolCallId);
+                if (existing)
+                {
+                    existing.output = output;
+                    existing.status = status;
+                    continue;
+                }
+            }
+
+            out.push({
+                name: part.toolName ?? "unknown",
+                input: null,
+                status,
+                output,
+            });
+        }
+        else if (part.type === "tool-approval-response")
+        {
+            out.push({
+                name: "tool_approval",
+                input: { approvalId: part.approvalId, approved: part.approved, reason: part.reason },
+                status: part.approved === false ? "error" : "ok",
+                output: part.reason ?? null,
+            });
+        }
+    }
+    return out;
+}
+
+function indexForToolCallPart(parts: ProviderPart[], partIndex: number): number
+{
+    let count = 0;
+    for (let i = 0; i <= partIndex; i++)
+    {
+        if (parts[i]?.type === "tool-call") { count++; }
+    }
+    return count - 1;
+}
+
+function contentText(content: ProviderMessage["content"]): string
+{
+    if (typeof content === "string") { return content; }
+    if (!Array.isArray(content)) { return ""; }
+
+    return content
+        .filter(part => part.type === "text")
+        .map(part => part.text ?? part.reasoning ?? "")
+        .filter(Boolean)
+        .join("\n");
+}
+
+function stringifyToolOutput(output: unknown): string | null
+{
+    if (output === undefined || output === null) { return null; }
+    if (typeof output === "string") { return output; }
+    try
+    {
+        return JSON.stringify(output);
+    }
+    catch
+    {
+        return String(output);
+    }
+}
+
+function toolResultStatus(output: unknown): "ok" | "error" | "unknown"
+{
+    if (output && typeof output === "object" && "type" in output)
+    {
+        const type = (output as { type?: unknown }).type;
+        if (type === "error" || type === "execution-denied") { return "error"; }
+    }
+    return "ok";
+}
+
+function memoryText(event: BotBanditEvent): string
+{
+    const lines = [
+        event.title ? `Memory: ${event.title}` : "Memory",
+        event.goal ? `Goal: ${event.goal}` : undefined,
+        event.status ? `Status: ${event.status}` : undefined,
+        event.summary,
+        event.nextSteps?.length ? `Next steps:\n${event.nextSteps.map(step => `- ${step}`).join("\n")}` : undefined,
+        event.tags?.length ? `Tags: ${event.tags.join(", ")}` : undefined,
+        event.resources?.length ? `Resources: ${event.resources.join(", ")}` : undefined,
+        typeof event.importance === "number" ? `Importance: ${event.importance}` : undefined,
+    ];
+    return lines.filter((line): line is string => Boolean(line)).join("\n\n");
+}
+
+function compactionText(event: BotBanditEvent): string
+{
+    const prefix = typeof event.turnCount === "number" || typeof event.historyLength === "number"
+        ? `Compaction after ${event.turnCount ?? "?"} turns / ${event.historyLength ?? "?"} history messages.`
+        : "Compaction";
+    return [
+        prefix,
+        event.guidance ? `Guidance: ${event.guidance}` : undefined,
+        event.summary,
+    ].filter((line): line is string => Boolean(line)).join("\n\n");
+}
+
+function parseLines(raw: string): BotBanditEvent[]
+{
+    const out: BotBanditEvent[] = [];
+    for (const line of raw.split("\n"))
+    {
+        const trimmed = line.trim();
+        if (!trimmed) { continue; }
+        try
+        {
+            const parsed = JSON.parse(trimmed) as unknown;
+            if (parsed && typeof parsed === "object")
+            {
+                out.push(parsed as BotBanditEvent);
+            }
+        }
+        catch
+        {
+            // Skip malformed lines.
+        }
+    }
+    return out;
+}
+
+function stripExt(fileName: string): string
+{
+    return fileName.replace(/\.jsonl$/, "");
+}
+
+function emptySession(filePath: string, fileName: string): Session
+{
+    return {
+        agent: "botbandit",
+        sessionId: stripExt(fileName),
+        filePath,
+        project: null,
+        cwd: null,
+        startedAt: "",
+        endedAt: null,
+        model: null,
+        messageCount: 0,
+        messages: [],
+    };
+}
+
+function buildSession(filePath: string, ctx: ParseContext): Session
+{
+    return {
+        agent: "botbandit",
+        sessionId: ctx.sessionId,
+        filePath,
+        project: ctx.project ?? ctx.cwd,
+        cwd: ctx.cwd,
+        startedAt: ctx.startedAt,
+        endedAt: ctx.endedAt,
+        model: ctx.model,
+        messageCount: ctx.messages.length,
+        messages: ctx.messages,
+    };
+}
+
+export const botbanditAdapter: Adapter = {
+    agent: "botbandit",
+    defaultRoot: () => "~/.botbandit/sessions",
+    discover(root: string): string[]
+    {
+        let entries: string[];
+        try
+        {
+            entries = readdirSync(root);
+        }
+        catch
+        {
+            return [];
+        }
+
+        const files: string[] = [];
+        for (const entry of entries)
+        {
+            const file = join(root, entry);
+            try
+            {
+                if (statSync(file).isFile() && entry.endsWith(".jsonl"))
+                {
+                    files.push(file);
+                }
+            }
+            catch
+            {
+                continue;
+            }
+        }
+        return files.sort();
+    },
+    parse: parseBotBandit,
+};
