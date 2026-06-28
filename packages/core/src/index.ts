@@ -39,6 +39,7 @@ export {
     tierRank,
 } from "./digest.js";
 export { readJsonl } from "./jsonl.js";
+export { renderPublishedSessionMarkdown } from "./markdown.js";
 export {
     buildPublishedSessionBundle,
     type BuildPublishedSessionBundleOptions,
