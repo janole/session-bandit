@@ -50,6 +50,14 @@ export {
     type PublishedSessionSource,
     slugify,
 } from "./publish.js";
+export {
+    type RedactedPublishedSessionBundle,
+    type RedactionFinding,
+    type RedactionKind,
+    type RedactionReport,
+    redactPublishedSessionBundle,
+    type RedactPublishedSessionBundleOptions,
+} from "./redact.js";
 export type {
     AgentName,
     Message,
