@@ -1,0 +1,46 @@
+---
+layout: default
+---
+
+<section class="home-hero">
+  <div class="home-hero-inner">
+    <p class="eyebrow">Coding sessions, made readable</p>
+    <h1>{{ page.title | default: site.title | escape }}</h1>
+    <div class="home-copy">
+      {{ content }}
+    </div>
+  </div>
+</section>
+
+{% assign session_pages = site.pages | where_exp: "item", "item.path contains 'sessions/'" | sort: "generatedAt" | reverse %}
+
+<section class="session-index" aria-labelledby="session-index-title">
+  <div class="section-heading">
+    <p class="eyebrow">Archive</p>
+    <h2 id="session-index-title">Published Sessions</h2>
+  </div>
+
+  {% if session_pages.size > 0 %}
+    <ol class="session-list">
+      {% for session in session_pages %}
+        {% unless session.path contains ".gitkeep" %}
+          <li class="session-card">
+            <a href="{{ session.url | relative_url }}">
+              <span class="session-card-title">{{ session.title | default: session.slug | escape }}</span>
+              <span class="session-card-meta">
+                {% if session.agent %}{{ session.agent | escape }}{% else %}agent{% endif %}
+                {% if session.generatedAt %}<span aria-hidden="true">/</span> {{ session.generatedAt | date: "%Y-%m-%d" }}{% endif %}
+                {% if session.redactionMode %}<span aria-hidden="true">/</span> {{ session.redactionMode | escape }} redaction{% endif %}
+              </span>
+            </a>
+          </li>
+        {% endunless %}
+      {% endfor %}
+    </ol>
+  {% else %}
+    <div class="empty-state">
+      <h3>No sessions published yet</h3>
+      <p>Export a reviewed Markdown artifact into <code>sessions/&lt;slug&gt;/index.md</code>.</p>
+    </div>
+  {% endif %}
+</section>

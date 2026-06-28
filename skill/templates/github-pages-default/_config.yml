@@ -1,0 +1,17 @@
+title: Coding Sessions
+description: Polished public notes from coding-agent sessions.
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+  syntax_highlighter: rouge
+permalink: pretty
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+  - scope:
+      path: "sessions"
+    values:
+      layout: session

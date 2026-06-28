@@ -1,0 +1,42 @@
+---
+layout: default
+---
+
+<article class="session-page">
+  <header class="session-hero">
+    <div>
+      <p class="eyebrow">Published session</p>
+      <h1>{{ page.title | default: "Untitled session" | escape }}</h1>
+    </div>
+    <dl class="session-metadata" aria-label="Session metadata">
+      {% if page.agent %}
+        <div>
+          <dt>Agent</dt>
+          <dd>{{ page.agent | escape }}</dd>
+        </div>
+      {% endif %}
+      {% if page.redactionMode %}
+        <div>
+          <dt>Redaction</dt>
+          <dd>{{ page.redactionMode | escape }}</dd>
+        </div>
+      {% endif %}
+      {% if page.generatedAt %}
+        <div>
+          <dt>Generated</dt>
+          <dd>{{ page.generatedAt | date: "%Y-%m-%d" }}</dd>
+        </div>
+      {% endif %}
+      {% if page.sessionId %}
+        <div>
+          <dt>Session</dt>
+          <dd><code>{{ page.sessionId | escape }}</code></dd>
+        </div>
+      {% endif %}
+    </dl>
+  </header>
+
+  <div class="session-body">
+    {{ content }}
+  </div>
+</article>
