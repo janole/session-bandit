@@ -18,6 +18,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 
+import { BOTBANDIT_KNOWN_EVENT_TYPES,botbanditAdapter } from "./adapters/botbandit.js";
 import { claudeAdapter } from "./adapters/claude.js";
 import { CODEX_INJECTED_MARKERS,codexAdapter } from "./adapters/codex.js";
 import type { AgentName } from "./types.js";
@@ -32,7 +33,7 @@ export interface AgentDoctorReport {
     emptySessions: number;
     skippedCompressed: number;
     /** Agent-specific diagnostic details (downcast for display). */
-    details?: CodexDoctorDetails | ClaudeDoctorDetails;
+    details?: CodexDoctorDetails | ClaudeDoctorDetails | BotBanditDoctorDetails;
 }
 
 export interface DoctorReport {
@@ -61,6 +62,11 @@ export interface CodexDoctorDetails {
 export interface ClaudeDoctorDetails {
     /** Sessions where tool_use blocks have no matching tool_result by id. */
     unmatchedToolResults: number;
+}
+
+export interface BotBanditDoctorDetails {
+    unrecognizedEventTypes: Record<string, number>;
+    schemaVersions: Record<string, number>;
 }
 
 // ---- helpers ---------------------------------------------------------------
@@ -342,6 +348,72 @@ function diagnoseClaude(root: string): AgentDoctorReport
     };
 }
 
+// ---- BotBandit doctor ------------------------------------------------------
+
+function diagnoseBotBandit(root: string): AgentDoctorReport
+{
+    const files = botbanditAdapter.discover(root);
+    let emptySessions = 0;
+    const unrecognizedEventTypes: Record<string, number> = {};
+    const schemaVersions: Record<string, number> = {};
+
+    for (const file of files)
+    {
+        const session = botbanditAdapter.parse(file);
+        if (session.messageCount === 0) { emptySessions++; }
+
+        let raw: string;
+        try
+        {
+            raw = readFileSync(file, "utf8");
+        }
+        catch
+        {
+            continue;
+        }
+
+        for (const line of raw.split("\n"))
+        {
+            const trimmed = line.trim();
+            if (!trimmed) { continue; }
+            let obj: Record<string, unknown>;
+            try
+            {
+                const parsed = JSON.parse(trimmed) as unknown;
+                if (!parsed || typeof parsed !== "object") { continue; }
+                obj = parsed as Record<string, unknown>;
+            }
+            catch
+            {
+                continue;
+            }
+
+            const type = obj["type"];
+            if (typeof type === "string" && !BOTBANDIT_KNOWN_EVENT_TYPES.has(type))
+            {
+                unrecognizedEventTypes[type] = (unrecognizedEventTypes[type] ?? 0) + 1;
+            }
+
+            if (type === "session_init")
+            {
+                const schemaVersion = obj["schemaVersion"];
+                const key = typeof schemaVersion === "number" ? String(schemaVersion) : "unknown";
+                schemaVersions[key] = (schemaVersions[key] ?? 0) + 1;
+            }
+        }
+    }
+
+    return {
+        agent: "botbandit",
+        root,
+        files: files.length,
+        sessions: files.length,
+        emptySessions,
+        skippedCompressed: 0,
+        details: { unrecognizedEventTypes, schemaVersions },
+    };
+}
+
 // ---- public API ------------------------------------------------------------
 
 /**
@@ -364,6 +436,10 @@ export function diagnoseAll(
         else if (config.adapter.agent === "claude") 
         {
             agents.push(diagnoseClaude(root));
+        }
+        else if (config.adapter.agent === "botbandit")
+        {
+            agents.push(diagnoseBotBandit(root));
         }
         else 
         {

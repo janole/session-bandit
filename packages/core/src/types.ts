@@ -7,7 +7,7 @@
  * See docs/prd.md.
  */
 
-export type AgentName = "claude" | "codex" | "gemini";
+export type AgentName = "claude" | "codex" | "gemini" | "botbandit";
 
 export interface Session {
     agent: AgentName;
@@ -43,6 +43,7 @@ export interface Message {
      * back where the summary comes from:
      *  - `"recap"`      — Claude `away_summary` (a while-you-were-away recap)
      *  - `"compaction"` — Codex `compacted` envelope (context-window compaction)
+     *  - `"memory"`     — BotBandit generated session memory
      * The provider is already on {@link Session.agent}, so the subtype is the
      * semantic kind, not the raw provider string.
      */

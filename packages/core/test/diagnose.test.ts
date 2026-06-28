@@ -1,10 +1,10 @@
 import { join } from "node:path";
 
-import { describe, expect,it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type { CodexDoctorDetails } from "../src/diagnose.js";
+import type { BotBanditDoctorDetails, CodexDoctorDetails } from "../src/diagnose.js";
 import { diagnoseAll } from "../src/diagnose.js";
-import { claudeAdapter,codexAdapter } from "../src/index.js";
+import { botbanditAdapter, claudeAdapter, codexAdapter } from "../src/index.js";
 
 const fixtureRoot = join(__dirname, "fixtures");
 
@@ -15,11 +15,12 @@ describe("diagnoseAll", () =>
         const report = diagnoseAll([
             { adapter: codexAdapter, root: join(fixtureRoot, "codex") },
             { adapter: claudeAdapter, root: join(fixtureRoot, "claude") },
+            { adapter: botbanditAdapter, root: join(fixtureRoot, "botbandit") },
         ]);
         expect(report.totals).toBeDefined();
         expect(report.totals.files).toBeGreaterThan(0);
         expect(report.totals.sessions).toBeGreaterThan(0);
-        expect(report.agents).toHaveLength(2);
+        expect(report.agents).toHaveLength(3);
     });
 
     it("includes per-agent reports", () => 
@@ -32,6 +33,31 @@ describe("diagnoseAll", () =>
         expect(codex.agent).toBe("codex");
         expect(codex.files).toBe(4); // 3 jsonl + 1 json
         expect(codex.sessions).toBe(4);
+    });
+});
+
+describe("diagnoseAll — botbandit details", () =>
+{
+    it("reports BotBandit files and schema versions", () =>
+    {
+        const report = diagnoseAll([
+            { adapter: botbanditAdapter, root: join(fixtureRoot, "botbandit") },
+        ]);
+        const botbandit = report.agents[0]!;
+        const details = botbandit.details as BotBanditDoctorDetails;
+        expect(botbandit.agent).toBe("botbandit");
+        expect(botbandit.files).toBe(3);
+        expect(botbandit.sessions).toBe(3);
+        expect(details.schemaVersions["2"]).toBe(3);
+    });
+
+    it("reports unrecognized BotBandit event types", () =>
+    {
+        const report = diagnoseAll([
+            { adapter: botbanditAdapter, root: join(fixtureRoot, "botbandit") },
+        ]);
+        const details = report.agents[0]!.details as BotBanditDoctorDetails;
+        expect(details.unrecognizedEventTypes["mystery_event"]).toBe(1);
     });
 });
 

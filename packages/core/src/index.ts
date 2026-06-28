@@ -4,12 +4,15 @@ import type { Adapter } from "./adapter.js";
 import type { Session } from "./types.js";
 
 export type { Adapter } from "./adapter.js";
+export { botbanditAdapter } from "./adapters/botbandit.js";
+export { BOTBANDIT_KNOWN_EVENT_TYPES } from "./adapters/botbandit.js";
 export { claudeAdapter } from "./adapters/claude.js";
 export { decodeCwd } from "./adapters/claude.js";
 export { codexAdapter } from "./adapters/codex.js";
 export { CODEX_INJECTED_MARKERS } from "./adapters/codex.js";
 export {
     type AgentDoctorReport,
+    type BotBanditDoctorDetails,
     type ClaudeDoctorDetails,
     type CodexDoctorDetails,
     diagnoseAll,
