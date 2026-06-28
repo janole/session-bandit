@@ -121,8 +121,54 @@ ordinary chat turns:
 | `recap` | Session recap | Claude while-you-were-away recap. |
 | other subtype | Summary | Preserve the subtype label for auditability. |
 
+## Redaction
+
+`redactPublishedSessionBundle(bundle, options)` returns a redacted copy and a
+report:
+
+```ts
+interface RedactedPublishedSessionBundle {
+  bundle: PublishedSessionBundle;
+  report: RedactionReport;
+}
+```
+
+It never mutates the source bundle or parsed `Session`. The report stores
+counts and locations, but not original sensitive values:
+
+```ts
+interface RedactionReport {
+  mode: "strict" | "cautious" | "minimal" | "none";
+  counts: Record<RedactionKind, number>;
+  findings: Array<{ kind: RedactionKind; path: string; replacement: string }>;
+}
+```
+
+Current redaction kinds:
+
+- `secretLike`: API-token-like values such as `sk-...`, `ghp_...`,
+  `glpat-...`, JWT-looking strings, and long opaque blobs in non-minimal modes.
+- `envAssignment`: sensitive environment assignments such as
+  `SECRET_TOKEN=...`.
+- `email`: email addresses in non-minimal modes.
+- `urlQuery`: URL credentials, query strings, and fragments in non-minimal
+  modes.
+- `homePath`: `/Users/<name>` and `/home/<name>` prefixes in non-minimal modes.
+- `knownAuthFile`: obvious auth file paths such as `.env`, `.npmrc`, `.pem`,
+  `.p8`, `auth.json`, and `.ssh/...` in non-minimal modes.
+- `longOutputCollapsed`: tool output fields over the mode/output limit.
+
+The CLI exposes this through:
+
+```sh
+session-bandit redact-check <sessionId> [--redact strict|cautious|minimal|none] [--pretty]
+```
+
+`redact-check` defaults to `cautious` at the command layer. The lower-level
+bundle builder remains policy-neutral and defaults to `none`.
+
 ## Next Phases
 
-P1 should add redaction over the same bundle shape and produce a
-`redaction-report.json` object. P2/P3 Markdown and HTML exporters should consume
-the redacted bundle rather than reading raw sessions directly.
+P2/P3 Markdown and HTML exporters should consume the redacted bundle rather than
+reading raw sessions directly. Export commands should write `redaction-report.json`
+using the report shape above.

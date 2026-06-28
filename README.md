@@ -23,6 +23,9 @@ ever done with every agent.
 - **Parsing health check** — `doctor` command validates that Session Bandit's
   parsing assumptions match your real session files (format drift, injection
   markers, unrecognized types, silent skips).
+- **Redaction preview for publishing** — `redact-check` reports what would be
+  redacted from a session before any Markdown or static-site export writes
+  public artifacts.
 - **Works as a library too** — `@session-bandit/core` exposes a programmatic
   API for indexing and querying sessions from your own code.
 
@@ -116,6 +119,10 @@ session-bandit extract 342647fa-5bf --pretty
 session-bandit extract 342647fa-5bf --prompt handoff
 session-bandit extract 342647fa-5bf --prompt memory
 
+# Preview redaction findings before publishing/exporting
+session-bandit redact-check 342647fa-5bf --pretty
+session-bandit redact-check 342647fa-5bf --redact strict
+
 # Find the sessions where something actually happened (by substance score)
 session-bandit list --sort importance --pretty
 
@@ -139,6 +146,7 @@ session-bandit list [--agent <name>] [--project <path>] [--sort recent|importanc
 session-bandit show <sessionId> [--agent <name>]
 session-bandit search <query> [--agent <name>] [--project <path>] [--since <date>] [--until <date>] [--pretty]
 session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [--full] [--pretty]
+session-bandit redact-check <sessionId> [--agent <name>] [--redact strict|cautious|minimal|none] [--pretty]
 ```
 
 | Flag | Description |
@@ -151,6 +159,7 @@ session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [-
 | `--until <date>` | `list`/`search`: only entries at/before this time — absolute date or relative (`7d`, `24h`, `2w`, `3m`) |
 | `--prompt <kind>` | `extract`: wrap the digest in a synthesis prompt (`handoff`\|`memory`) |
 | `--full` | `extract`: include the complete de-noised transcript |
+| `--redact <mode>` | `redact-check`: choose `strict`, `cautious` (default), `minimal`, or `none` |
 | `--pretty` | Print human-readable output instead of JSON lines |
 
 **Output defaults to JSON lines** (one object per line) for machine
