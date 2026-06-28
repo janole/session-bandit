@@ -86,10 +86,20 @@ persists that source session as provider metadata:
 ```
 
 Session Bandit scans message-level and content-part `providerMetadata` for that
-entry. The first observed `threadId` is emitted once as a summary marker:
+entry. The first observed `threadId` is emitted once as a summary marker with
+structured provenance metadata:
 
 ```ts
-{ role: "summary", subtype: "wrapped_codex", text: "Original Codex session: ..." }
+{
+  role: "summary",
+  subtype: "wrapped_codex",
+  text: "Original Codex session: ...",
+  metadata: {
+    relatedSessions: [
+      { agent: "codex", kind: "wrapped_codex", sessionId: "thr_...", turnId: "turn_...", path: "~/.codex/sessions/..." }
+    ]
+  }
+}
 ```
 
 The raw BotBandit transcript remains intact; this marker only preserves
