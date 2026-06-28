@@ -24,8 +24,10 @@ ever done with every agent.
   parsing assumptions match your real session files (format drift, injection
   markers, unrecognized types, silent skips).
 - **Redaction preview for publishing** — `redact-check` reports what would be
-  redacted from a session before any Markdown or static-site export writes
-  public artifacts.
+  redacted from a session before a Markdown export writes public artifacts.
+- **Markdown publishing artifact** — `export-md` writes a redacted, reviewable
+  Markdown file with provenance, digest, summaries, transcript, and collapsible
+  tool calls.
 - **Works as a library too** — `@session-bandit/core` exposes a programmatic
   API for indexing and querying sessions from your own code.
 
@@ -172,6 +174,43 @@ session-bandit export-md <sessionId> --out <path> [--agent <name>] [--title <tit
 
 **Output defaults to JSON lines** (one object per line) for machine
 consumption and piping. Use `--pretty` for terminal browsing.
+
+## Markdown publishing workflow
+
+Session Bandit deliberately stops at a redacted Markdown artifact and redaction
+report. It does not call an LLM, push to a remote, or generate a generic HTML
+site. That keeps the core path offline and reviewable while still making the
+artifact easy to publish in a GitHub Pages-style repository.
+
+Recommended flow:
+
+```sh
+# 1. Pick a session by ID, search, or importance-ranked list
+session-bandit list --sort importance --pretty
+session-bandit search "apple watch interface" --pretty
+
+# 2. Preview redaction risk
+session-bandit redact-check 342647fa-5bf --pretty
+
+# 3. Export Markdown plus the machine-readable report
+mkdir -p sessions/apple-watch-interface
+session-bandit export-md 342647fa-5bf \
+  --out sessions/apple-watch-interface/README.md \
+  --report-out sessions/apple-watch-interface/redaction-report.json \
+  --title "Apple Watch interface"
+
+# 4. Review, then commit/push with your normal git workflow
+git diff -- sessions/apple-watch-interface
+```
+
+For public artifacts, keep the default `--redact cautious` or use
+`--redact strict`. `--redact none` is intended for local debugging and requires
+`--yes`.
+
+If you want a polished page, treat the Markdown as the canonical source and let
+an agent or site generator render it after review. A future HTML renderer should
+consume the same redacted bundle or Markdown rather than re-reading private
+session files.
 
 ### Example output
 

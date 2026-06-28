@@ -194,12 +194,35 @@ The Markdown contains:
   unknown summary subtypes.
 - Full transcript with tool calls in `<details>` blocks.
 
+## Publishing Workflow
+
+The deterministic workflow for a public Markdown artifact is:
+
+```sh
+session-bandit redact-check <sessionId> --pretty
+session-bandit export-md <sessionId> \
+  --out sessions/<slug>/README.md \
+  --report-out sessions/<slug>/redaction-report.json \
+  --title "Readable title"
+```
+
+The author or agent should then review the Markdown and redaction report before
+committing or pushing. A GitHub Pages-style repository can store each session in
+its own folder, for example `sessions/<slug>/README.md` plus
+`sessions/<slug>/redaction-report.json`.
+
+Any human intro, section-heading polish, commit, push, or deployment step lives
+outside the CLI. That keeps the CLI deterministic and offline while allowing a
+frontier agent or static-site generator to improve presentation after review.
+
 ## Next Phases
 
-Markdown is the canonical deterministic artifact for now. The next phase should
-focus on the publishing workflow around `redact-check` and `export-md`: choosing
+Markdown is the canonical deterministic artifact for now. The skill and docs
+cover the publishing workflow around `redact-check` and `export-md`: choosing
 the session/title/slug, writing to a GitHub Pages-style folder, reviewing the
-redaction report, and optionally committing the result.
+redaction report, and optionally committing the result. The next proof point is
+publishing one or two real sessions and using that output to decide whether the
+Markdown shape needs changes.
 
 A static HTML renderer is intentionally deferred. If real Markdown publishing
 shows that HTML is needed, it should be a high-quality Markdown/bundle rendering

@@ -175,6 +175,27 @@ Useful options:
 | `--redact none --yes` | Disable redaction explicitly |
 | `--report-out <path>` | Write the redaction report JSON |
 
+### Publishing workflow
+
+Use `redact-check` and `export-md` together when preparing a public artifact:
+
+```sh
+session-bandit list --sort importance --pretty
+session-bandit search "the topic" --pretty
+session-bandit redact-check 342647fa-5bf --pretty
+
+mkdir -p sessions/the-topic
+session-bandit export-md 342647fa-5bf \
+  --out sessions/the-topic/README.md \
+  --report-out sessions/the-topic/redaction-report.json \
+  --title "The topic"
+```
+
+Review both files before committing or publishing. The CLI does not push,
+deploy, call an LLM, or generate a generic HTML page; Markdown is the canonical
+offline artifact. If HTML is needed, generate it from the reviewed Markdown or
+redacted publishing bundle.
+
 ### `doctor`
 
 Check whether parser assumptions still match your local session files. This is
