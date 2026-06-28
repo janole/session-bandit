@@ -220,6 +220,7 @@ function processEvent(event: BotBanditEvent, ctx: ParseContext): void
     {
         ctx.messages.push({
             role: "system",
+            subtype: "notice",
             text: `[${event.variant ?? "info"}] ${event.text}`,
             toolCalls: [],
             timestamp: event.timestamp ?? null,

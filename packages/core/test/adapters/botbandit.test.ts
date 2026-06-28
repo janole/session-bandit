@@ -10,6 +10,7 @@ const simpleFile = join(fixtureRoot, "simple-session.jsonl");
 const toolFile = join(fixtureRoot, "tool-session.jsonl");
 const summaryFile = join(fixtureRoot, "summary-session.jsonl");
 const codexWrapperFile = join(fixtureRoot, "codex-wrapper-session.jsonl");
+const noticeFile = join(fixtureRoot, "notice-session.jsonl");
 
 describe("botbanditAdapter basics", () =>
 {
@@ -29,7 +30,7 @@ describe("botbanditAdapter.discover", () =>
     it("finds top-level .jsonl session files", () =>
     {
         const files = botbanditAdapter.discover(fixtureRoot);
-        expect(files).toHaveLength(4);
+        expect(files).toHaveLength(5);
         expect(files).toEqual([...files].sort());
         expect(files.some(file => file.endsWith("simple-session.jsonl"))).toBe(true);
     });
@@ -37,6 +38,19 @@ describe("botbanditAdapter.discover", () =>
     it("returns [] for a missing root", () =>
     {
         expect(botbanditAdapter.discover(join(fixtureRoot, "nope"))).toEqual([]);
+    });
+});
+
+describe("botbanditAdapter.parse — notices", () =>
+{
+    it("keeps non-debug notices as tagged system messages", () =>
+    {
+        const session = botbanditAdapter.parse(noticeFile);
+        const notice = session.messages.find(message => message.subtype === "notice");
+
+        expect(notice).toBeTruthy();
+        expect(notice!.role).toBe("system");
+        expect(notice!.text).toBe("[info] Auto-approved safe shell command by policy rule(s) bash(grep *).");
     });
 });
 
