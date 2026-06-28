@@ -28,6 +28,9 @@ ever done with every agent.
 - **Markdown publishing artifact** — `export-md` writes a redacted, reviewable
   Markdown file with provenance, digest, summaries, transcript, and collapsible
   tool calls.
+- **Gorgeous GitHub Pages template** — the bundled skill template renders those
+  Markdown artifacts as a polished static archive without changing the
+  deterministic export path.
 - **Works as a library too** — `@session-bandit/core` exposes a programmatic
   API for indexing and querying sessions from your own code.
 
@@ -182,6 +185,12 @@ report. It does not call an LLM, push to a remote, or generate a generic HTML
 site. That keeps the core path offline and reviewable while still making the
 artifact easy to publish in a GitHub Pages-style repository.
 
+For new publishing repos, use the default template in
+`skill/templates/github-pages-default/`. It is a self-contained Jekyll/GitHub
+Pages site with custom layouts and CSS for generated session Markdown. The
+agent skill can copy this template into an empty repo, then export sessions into
+`sessions/<slug>/index.md` with a sibling `redaction-report.json`.
+
 Recommended flow:
 
 ```sh
@@ -195,7 +204,7 @@ session-bandit redact-check 342647fa-5bf --pretty
 # 3. Export Markdown plus the machine-readable report
 mkdir -p sessions/apple-watch-interface
 session-bandit export-md 342647fa-5bf \
-  --out sessions/apple-watch-interface/README.md \
+  --out sessions/apple-watch-interface/index.md \
   --report-out sessions/apple-watch-interface/redaction-report.json \
   --title "Apple Watch interface"
 
