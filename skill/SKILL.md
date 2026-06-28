@@ -1,6 +1,6 @@
 ---
 name: session-bandit
-description: 'Search, browse, and extract information from coding agent session transcripts (Claude Code, Codex). Use when: (1) You need to write a handoff note from a previous session, (2) You need to create a memory note from a past session, (3) You want to find what happened in a previous coding session, (4) You want to search across all your agent sessions for a specific topic, file, or command. Triggers on: "session extract", "handoff from previous session", "what did I do in the last session", "search my sessions", "find a session where I worked on".'
+description: 'Search, browse, and extract information from coding agent session transcripts (Claude Code, Codex, BotBandit). Use when: (1) You need to write a handoff note from a previous session, (2) You need to create a memory note from a past session, (3) You want to find what happened in a previous coding session, (4) You want to search across all your agent sessions for a specific topic, file, or command. Triggers on: "session extract", "handoff from previous session", "what did I do in the last session", "search my sessions", "find a session where I worked on".'
 ---
 
 ## Prerequisites
@@ -37,7 +37,7 @@ session-bandit --version
 
 ## What Session Bandit does
 
-Session Bandit indexes the session transcripts that coding agents (Claude Code, Codex) write to disk as JSONL. It works fully offline — no API calls, no auth, no network. It scans `~/.claude/projects/` and `~/.codex/sessions/` by default.
+Session Bandit indexes the session transcripts that coding agents (Claude Code, Codex, BotBandit) write to disk as JSONL. It works fully offline — no API calls, no auth, no network. It scans `~/.claude/projects/`, `~/.codex/sessions/`, and `~/.botbandit/sessions/` by default.
 
 ## Output modes
 
@@ -112,6 +112,7 @@ session-bandit extract 342647fa-5bf --full --prompt handoff
 ```sh
 session-bandit doctor
 session-bandit doctor --agent codex
+session-bandit doctor --agent botbandit
 ```
 
 ## Writing a handoff note
@@ -155,7 +156,7 @@ When asked to create a memory note from a past session:
 
 - The `--prompt handoff` and `--prompt memory` templates are first drafts. Feel free to adapt the output format to the user's needs — the digest data is the valuable part, not the template text.
 - Use `--full` when you need the complete transcript for context (e.g. complex multi-step work). Without `--full`, the digest is compact and may omit details.
-- Claude recaps and Codex compactions are surfaced as `summary` messages and included in extracts. Treat them as useful synthesis context, but still ground handoffs and memories in the digest's files, errors, tests, and final turns.
+- Claude recaps, Codex compactions, and BotBandit memory/compaction events are surfaced as `summary` messages and included in extracts. Treat them as useful synthesis context, but still ground handoffs and memories in the digest's files, errors, tests, and final turns.
 - The substance score measures *activity* (tool calls, file writes, test runs), not *significance*. A short session can contain a critical decision. Read the key turns, not just the score.
 - Session IDs can be specified as prefixes (e.g. `342647fa` instead of the full UUID).
-- Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files, including format drift, injection markers, unrecognized types, and silent skips. Use `--agent claude` or `--agent codex` to narrow the check.
+- Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files, including format drift, injection markers, unrecognized types, and silent skips. Use `--agent claude`, `--agent codex`, or `--agent botbandit` to narrow the check.
