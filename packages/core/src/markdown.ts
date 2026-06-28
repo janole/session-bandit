@@ -130,10 +130,14 @@ function renderTranscript(lines: string[], messages: Message[]): void
 {
     lines.push("## Transcript");
     lines.push("");
+    let transcriptIndex = 1;
     for (let i = 0; i < messages.length; i++)
     {
         const message = messages[i]!;
-        lines.push(`### ${i + 1}. ${roleLabel(message)}`);
+        if (message.role === "summary") { continue; }
+
+        lines.push(`### ${transcriptIndex}. ${roleLabel(message)}`);
+        transcriptIndex++;
         lines.push("");
         if (message.timestamp) { lines.push(`_Timestamp: ${message.timestamp}_`); lines.push(""); }
         if (message.text)
@@ -228,10 +232,6 @@ function summaryLabel(subtype: string): string
 
 function roleLabel(message: Message): string
 {
-    if (message.role === "summary" && message.subtype)
-    {
-        return summaryLabel(message.subtype);
-    }
     return message.role.toUpperCase();
 }
 

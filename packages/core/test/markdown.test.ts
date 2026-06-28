@@ -67,6 +67,9 @@ describe("renderPublishedSessionMarkdown", () =>
         expect(markdown).toContain("## Summaries");
         expect(markdown).toContain("### Original Codex Session");
         expect(markdown).toContain("Original Codex session: thr_codex_123");
+        expect(markdown.match(/Original Codex session: thr_codex_123/g)).toHaveLength(1);
+        expect(markdown).not.toContain("2. Original Codex Session");
+        expect(markdown).toContain("### 2. ASSISTANT");
     });
 
     it("renders redacted bundles without leaking sensitive originals", () =>
