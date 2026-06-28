@@ -203,19 +203,31 @@ The deterministic workflow for a public Markdown artifact is:
 ```sh
 session-bandit redact-check <sessionId> --pretty
 session-bandit export-md <sessionId> \
-  --out sessions/<slug>/README.md \
+  --out sessions/<slug>/index.md \
   --report-out sessions/<slug>/redaction-report.json \
   --title "Readable title"
 ```
 
 The author or agent should then review the Markdown and redaction report before
 committing or pushing. A GitHub Pages-style repository can store each session in
-its own folder, for example `sessions/<slug>/README.md` plus
+its own folder, for example `sessions/<slug>/index.md` plus
 `sessions/<slug>/redaction-report.json`.
 
 Any human intro, section-heading polish, commit, push, or deployment step lives
 outside the CLI. That keeps the CLI deterministic and offline while allowing a
 frontier agent or static-site generator to improve presentation after review.
+
+## GitHub Pages Template
+
+The default presentation layer lives in
+`skill/templates/github-pages-default/`. It is a static Jekyll/GitHub Pages
+template with custom layouts and CSS for exported session Markdown. The template
+does not change the publishing contract: generated sessions still live at
+`sessions/<slug>/index.md`, with `redaction-report.json` beside them.
+
+The skill can copy the template into an empty publishing repo. In an existing
+repo it should avoid overwriting `_config.yml`, `_layouts/`, `assets/`,
+`index.md`, or `README.md` without user approval.
 
 ## Next Phases
 
