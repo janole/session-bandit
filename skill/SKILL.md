@@ -158,7 +158,7 @@ optional prose polish, and reporting risk to the user.
 2. **Choose title, slug, and output paths.** For a GitHub Pages-style repo,
    prefer one folder per session:
    ```text
-   sessions/<slug>/README.md
+   sessions/<slug>/index.md
    sessions/<slug>/redaction-report.json
    ```
    Keep slugs short, lowercase, and stable. If the title is uncertain, propose
@@ -175,7 +175,7 @@ optional prose polish, and reporting risk to the user.
 4. **Export Markdown and the report:**
    ```sh
    session-bandit export-md <sessionId> \
-     --out sessions/<slug>/README.md \
+     --out sessions/<slug>/index.md \
      --report-out sessions/<slug>/redaction-report.json \
      --title "Human readable title"
    ```
@@ -193,6 +193,35 @@ optional prose polish, and reporting risk to the user.
 7. **Ask before making it public.** Before `git add`, `git commit`, `git push`,
    or any deploy action, summarize the redaction risk and ask for explicit user
    approval unless the user already gave that approval in the current turn.
+
+## GitHub Pages template
+
+This skill ships a default publishing template at
+`templates/github-pages-default/` next to this `SKILL.md`. Use it when the user
+asks for a GitHub Pages repo, a polished static site, or a default public
+presentation for exported sessions.
+
+Template behavior:
+
+- It is a Jekyll/GitHub Pages site with custom layouts and CSS.
+- It expects generated sessions at `sessions/<slug>/index.md`.
+- It expects redaction reports beside sessions as
+  `sessions/<slug>/redaction-report.json`.
+- It uses `_config.yml` defaults so exported Session Bandit Markdown gets the
+  session layout automatically.
+- It is static and self-contained; do not add external assets, trackers, fonts,
+  or remote scripts unless the user explicitly asks.
+
+When initializing an empty publishing repo:
+
+```sh
+cp -R <skill-directory>/templates/github-pages-default/. <target-repo>/
+```
+
+When the repo already exists, do not overwrite `_config.yml`, `_layouts/`,
+`assets/session.css`, `index.md`, or `README.md` without asking. Add or update
+only `sessions/<slug>/index.md`, `sessions/<slug>/redaction-report.json`, and
+an index entry if the user wants a manual index.
 
 ## Writing a handoff note
 
@@ -239,6 +268,7 @@ When asked to create a memory note from a past session:
 - Before helping publish or export a session publicly, run `session-bandit redact-check <sessionId> --pretty` and report the remaining risk. Automated redaction is best-effort, not proof of safety.
 - For a Markdown export, prefer `session-bandit export-md <sessionId> --out <path> --report-out <reportPath>`, then inspect the report before suggesting commit/publish.
 - Markdown is the canonical publishing artifact. Do not create a basic HTML transcript unless the user specifically asks for HTML; high-quality HTML should be generated from the reviewed Markdown or redacted bundle.
+- Prefer the bundled `templates/github-pages-default/` template for new GitHub Pages publishing repos. It is the default public presentation unless the user asks for another style.
 - The substance score measures *activity* (tool calls, file writes, test runs), not *significance*. A short session can contain a critical decision. Read the key turns, not just the score.
 - Session IDs can be specified as prefixes (e.g. `342647fa` instead of the full UUID).
 - Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files, including format drift, injection markers, unrecognized types, and silent skips. Use `--agent claude`, `--agent codex`, or `--agent botbandit` to narrow the check.
