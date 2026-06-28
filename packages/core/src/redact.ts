@@ -113,11 +113,12 @@ function redactString(value: string, path: string, ctx: RedactionContext): strin
         return `${key}=[REDACTED_ENV]`;
     });
 
+    out = redactContextualSecretLike(out, path, ctx);
     out = replaceMatches(out, path, ctx, "secretLike", secretPatterns(ctx.mode), () => "[REDACTED_SECRET]");
 
     if (ctx.mode !== "minimal")
     {
-        out = replaceMatches(out, path, ctx, "email", [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi], () => "[REDACTED_EMAIL]");
+        out = replaceMatches(out, path, ctx, "email", [/(?<![A-Z0-9._%+/-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi], () => "[REDACTED_EMAIL]");
         out = redactUrls(out, path, ctx);
         out = replaceMatches(out, path, ctx, "homePath", [
             /\/Users\/[A-Za-z0-9._-]+(?=\/|$)/g,
@@ -127,6 +128,36 @@ function redactString(value: string, path: string, ctx: RedactionContext): strin
             /(?:^|[\s"'(])([^\s"'()]*?(?:\.env(?:\.[A-Za-z0-9_-]+)?|auth\.json|\.npmrc|\.pem|\.p8|\.ssh\/[^\s"'()]+))/g,
         ], (match) => match.startsWith(" ") ? " [REDACTED_AUTH_PATH]" : "[REDACTED_AUTH_PATH]");
     }
+
+    return out;
+}
+
+function redactContextualSecretLike(value: string, path: string, ctx: RedactionContext): string
+{
+    let out = value;
+
+    if (ctx.mode === "minimal")
+    {
+        return out;
+    }
+
+    out = replaceMatches(out, path, ctx, "secretLike", [
+        /\b((?:[Aa]pple [Dd]eveloper )?[Tt]eam(?:\s+ID)?(?:\s+is)?\s+`?)[A-Z0-9]{10}`?/g,
+        /\b((?:DEVELOPMENT_TEAM(?:\s*=)?|BOTBANDIT_DEV_TEAM=|[Aa]pplication-identifier:\s*)`?)[A-Z0-9]{10}`?/g,
+    ], (match) =>
+    {
+        const id = match.match(/[A-Z0-9]{10}/i);
+        if (!id || id.index === undefined)
+        {
+            return "[REDACTED_SECRET]";
+        }
+        return `${match.slice(0, id.index)}[REDACTED_SECRET]${match.endsWith("`") ? "`" : ""}`;
+    });
+
+    out = replaceMatches(out, path, ctx, "secretLike", [
+        /\b[0-9A-Fa-f]{8}-[0-9A-Fa-f]{16}\b/g,
+        /(?<![A-Z0-9])(?=[A-Z0-9]{10}(?![A-Z0-9]))(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]{10}(?![A-Z0-9])/g,
+    ], () => "[REDACTED_SECRET]");
 
     return out;
 }
@@ -206,6 +237,7 @@ function secretPatterns(mode: PublishedRedactionMode): RegExp[]
         /\bsk-[A-Za-z0-9_-]{8,}\b/g,
         /\bghp_[A-Za-z0-9_]{8,}\b/g,
         /\bglpat-[A-Za-z0-9_-]{8,}\b/g,
+        /\bpat_[A-Za-z0-9._-]{8,}\b/g,
         /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
     ];
 

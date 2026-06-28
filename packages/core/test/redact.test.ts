@@ -161,6 +161,69 @@ describe("redactPublishedSessionBundle", () =>
         expect(redactedJson).not.toContain(base64);
         expect(result.report.counts.secretLike).toBeGreaterThanOrEqual(2);
     });
+
+    it("cautious mode redacts Apple developer identifiers and PAT-shaped tokens", () =>
+    {
+        const teamId = "892J3JC2R6";
+        const deviceId = "00008310-0008A5E21E88A01E";
+        const pat = "pat_live.abcdef1234567890";
+        const session = makeSession([
+            {
+                role: "user",
+                text: [
+                    `Team ID ${teamId}`,
+                    `team ID ${teamId}`,
+                    `Team ID \`${teamId}\``,
+                    `BOTBANDIT_DEV_TEAM=${teamId}`,
+                    `application-identifier: ${teamId}.*`,
+                    `escaped newline before id \\n${teamId}.*`,
+                    `install --device ${deviceId}`,
+                    `token ${pat}`,
+                ].join("; "),
+                toolCalls: [],
+                timestamp: null,
+            },
+        ]);
+        const bundle = buildPublishedSessionBundle(session, {
+            generatedAt: "2026-06-28T12:00:00.000Z",
+            redaction: { mode: "cautious", reportPath: "redaction-report.json" },
+        });
+
+        const result = redactPublishedSessionBundle(bundle);
+        const redactedJson = JSON.stringify(result.bundle);
+
+        expect(redactedJson).not.toContain(teamId);
+        expect(redactedJson).not.toContain(deviceId);
+        expect(redactedJson).not.toContain(pat);
+        expect(redactedJson).toContain("Team ID [REDACTED_SECRET]");
+        expect(redactedJson).toContain("Team ID `[REDACTED_SECRET]`");
+        expect(redactedJson).toContain("BOTBANDIT_DEV_TEAM=[REDACTED_SECRET]");
+        expect(result.report.counts.secretLike).toBeGreaterThanOrEqual(8);
+    });
+
+    it("does not treat scoped package patch paths as email addresses", () =>
+    {
+        const packagePatch = "patches/@tiptap/core@3.23.2.patch";
+        const session = makeSession([
+            {
+                role: "user",
+                text: `Keep package patch path ${packagePatch}`,
+                toolCalls: [],
+                timestamp: null,
+            },
+        ]);
+        const bundle = buildPublishedSessionBundle(session, {
+            generatedAt: "2026-06-28T12:00:00.000Z",
+            redaction: { mode: "cautious", reportPath: "redaction-report.json" },
+        });
+
+        const result = redactPublishedSessionBundle(bundle);
+        const redactedJson = JSON.stringify(result.bundle);
+
+        expect(redactedJson).toContain(packagePatch);
+        expect(redactedJson).not.toContain("[REDACTED_EMAIL]");
+        expect(result.report.counts.email).toBe(0);
+    });
 });
 
 function makeSensitiveSession(): Session
