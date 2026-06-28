@@ -111,6 +111,56 @@ describe("redactPublishedSessionBundle", () =>
         expect(redactedJson).toContain("jane@example.com");
         expect(redactedJson).toContain("/Users/ole");
     });
+
+    it("cautious mode preserves git SHAs and SHA-256-style hashes", () =>
+    {
+        const gitSha = "0123456789abcdef0123456789abcdef01234567";
+        const sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        const session = makeSession([
+            {
+                role: "user",
+                text: `Compare commit ${gitSha} with content hash ${sha256}.`,
+                toolCalls: [],
+                timestamp: null,
+            },
+        ]);
+        const bundle = buildPublishedSessionBundle(session, {
+            generatedAt: "2026-06-28T12:00:00.000Z",
+            redaction: { mode: "cautious", reportPath: "redaction-report.json" },
+        });
+
+        const result = redactPublishedSessionBundle(bundle);
+        const redactedJson = JSON.stringify(result.bundle);
+
+        expect(redactedJson).toContain(gitSha);
+        expect(redactedJson).toContain(sha256);
+        expect(result.report.counts.secretLike).toBe(0);
+    });
+
+    it("strict mode redacts generic long hex and base64-like blobs", () =>
+    {
+        const gitSha = "0123456789abcdef0123456789abcdef01234567";
+        const base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const session = makeSession([
+            {
+                role: "user",
+                text: `Strict should redact ${gitSha} and ${base64}.`,
+                toolCalls: [],
+                timestamp: null,
+            },
+        ]);
+        const bundle = buildPublishedSessionBundle(session, {
+            generatedAt: "2026-06-28T12:00:00.000Z",
+            redaction: { mode: "strict", reportPath: "redaction-report.json" },
+        });
+
+        const result = redactPublishedSessionBundle(bundle);
+        const redactedJson = JSON.stringify(result.bundle);
+
+        expect(redactedJson).not.toContain(gitSha);
+        expect(redactedJson).not.toContain(base64);
+        expect(result.report.counts.secretLike).toBeGreaterThanOrEqual(2);
+    });
 });
 
 function makeSensitiveSession(): Session

@@ -209,7 +209,7 @@ function secretPatterns(mode: PublishedRedactionMode): RegExp[]
         /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
     ];
 
-    if (mode !== "minimal")
+    if (mode === "strict")
     {
         patterns.push(/\b[A-Fa-f0-9]{40,}\b/g);
         patterns.push(/\b[A-Za-z0-9+/]{48,}={0,2}\b/g);
