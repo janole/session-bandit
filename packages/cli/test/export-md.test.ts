@@ -95,7 +95,10 @@ describe("export-md command", () =>
         const markdown = readFileSync(out, "utf8");
         expect(markdown).toContain("# Sensitive Export");
         expect(markdown).toContain("redactionMode: \"cautious\"");
-        expect(markdown).toContain("## Transcript");
+        expect(markdown).toContain("## Session Transcript");
+        expect(markdown).toContain("### User");
+        expect(markdown).toContain("### Assistant");
+        expect(markdown).toContain("### Tools");
         expect(markdown).toContain("<summary>Bash - ok</summary>");
         expect(markdown).not.toContain("jane@example.com");
         expect(markdown).not.toContain("sk-testSECRET123456");
