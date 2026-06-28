@@ -29,6 +29,19 @@ describe("renderPublishedSessionMarkdown", () =>
                 ],
                 timestamp: "2026-06-28T12:01:00.000Z",
             },
+            {
+                role: "system",
+                subtype: "notice",
+                text: "[info] Auto-approved safe shell command by policy rule(s) bash(grep *).",
+                toolCalls: [],
+                timestamp: "2026-06-28T12:01:30.000Z",
+            },
+            {
+                role: "system",
+                text: "[error] Turn failed.",
+                toolCalls: [],
+                timestamp: "2026-06-28T12:01:45.000Z",
+            },
         ]);
         const bundle = buildPublishedSessionBundle(session, {
             title: "Build The Thing",
@@ -41,11 +54,18 @@ describe("renderPublishedSessionMarkdown", () =>
 
         expect(markdown).toContain("title: \"Build The Thing\"");
         expect(markdown).toContain("# Build The Thing");
+        expect(markdown.indexOf("## Session Transcript")).toBeLessThan(markdown.indexOf("## Digest"));
         expect(markdown).toContain("## Source");
         expect(markdown).toContain("## Digest");
         expect(markdown).toContain("### Goal");
         expect(markdown).toContain("Build the thing.");
-        expect(markdown).toContain("## Transcript");
+        expect(markdown).toContain("## Session Transcript");
+        expect(markdown).toContain("### User");
+        expect(markdown).toContain("### Assistant");
+        expect(markdown).toContain("### Tools");
+        expect(markdown).toContain("### System");
+        expect(markdown).toContain("[error] Turn failed.");
+        expect(markdown).not.toContain("Auto-approved safe shell command");
         expect(markdown).toContain("<summary>Bash - ok</summary>");
         expect(markdown).toContain("\"command\": \"npm test\"");
         expect(markdown).toContain("3 passing");
@@ -69,7 +89,7 @@ describe("renderPublishedSessionMarkdown", () =>
         expect(markdown).toContain("Original Codex session: thr_codex_123");
         expect(markdown.match(/Original Codex session: thr_codex_123/g)).toHaveLength(1);
         expect(markdown).not.toContain("2. Original Codex Session");
-        expect(markdown).toContain("### 2. ASSISTANT");
+        expect(markdown).toContain("### Assistant");
     });
 
     it("renders redacted bundles without leaking sensitive originals", () =>
