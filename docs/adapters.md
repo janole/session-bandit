@@ -17,7 +17,7 @@ Every adapter maps its raw format into one common shape, defined in
 `packages/core/src/types.ts`:
 
 ```ts
-type AgentName = "claude" | "codex" | "gemini"; // extend as adapters land
+type AgentName = "claude" | "codex" | "gemini" | "botbandit"; // extend as adapters land
 
 interface Session {
   agent: AgentName;
@@ -35,7 +35,7 @@ interface Session {
 interface Message {
   role: "user" | "assistant" | "system" | "tool" | "summary";
   text: string;              // human-readable, always a string (never undefined)
-  subtype?: string;          // for `summary`: "recap" | "compaction" — the semantic kind
+  subtype?: string;          // for `summary`: "recap" | "compaction" | "memory" — semantic kind
   toolCalls: ToolCall[];
   timestamp: string | null;  // ISO 8601 or null — never invented
 }
@@ -89,7 +89,7 @@ Let's say we're adding Gemini CLI.
 Add it to the `AgentName` union in `packages/core/src/types.ts`:
 
 ```ts
-export type AgentName = "claude" | "codex" | "gemini";
+export type AgentName = "claude" | "codex" | "gemini" | "botbandit";
 ```
 
 Also add it to the CLI's validator in `packages/cli/src/scan.ts` (`isValidAgent`).
@@ -212,3 +212,4 @@ fake sessions and assert output without scanning the real machine. See
 
 - [Claude format reference](format-claude.md) — `~/.claude/projects/<encoded-cwd>/*.jsonl`
 - [Codex format reference](format-codex.md) — `~/.codex/sessions/**`, three historical formats
+- [BotBandit format reference](format-botbandit.md) — `~/.botbandit/sessions/*.jsonl`

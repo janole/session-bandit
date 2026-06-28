@@ -115,7 +115,7 @@ single most important contract in the project — it is the seam between "core"
 and "per-provider adapter", and it is what keeps adapters swappable.
 
 ```ts
-type AgentName = "claude" | "codex" | "gemini"; // extend as adapters land
+type AgentName = "claude" | "codex" | "gemini" | "botbandit"; // extend as adapters land
 
 interface Session {
   agent: AgentName;
@@ -170,7 +170,8 @@ interface Adapter {
 Core flow: for each registered adapter, call `discover(root)` → for each file
 call `parse(file)` → collect into `Session[]`.
 
-v1 ships two adapters:
+The initial release shipped Claude and Codex adapters; Session Bandit now also
+ships a BotBandit adapter:
 - **Claude adapter** — root `~/.claude/projects`, walks `<encoded-cwd>/*.jsonl`.
   Encoded cwd = working dir with `/` replaced by `-`. Parse lines by `type`:
   `user`/`assistant`/`message`/`tool_use`/`tool_result`/`thinking`. Recover
@@ -181,6 +182,10 @@ v1 ships two adapters:
   `{type, role, content}` messages and `{type, id, call_id, status, action}`
   tool calls. `cwd` often lives in the metadata/instructions — extract
   best-effort.
+- **BotBandit adapter** — root `~/.botbandit/sessions`, reads one JSONL
+  event-sourced log per session. Main transcript comes from persisted
+  `message` events; `memory` and `compaction` events are emitted as `summary`
+  messages.
 
 ## MVP scope and acceptance criteria
 

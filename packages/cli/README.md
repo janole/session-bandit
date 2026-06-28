@@ -3,8 +3,9 @@
 Search, browse, and extract useful summaries from local coding-agent session
 transcripts.
 
-Session Bandit indexes the JSONL session histories written by Claude Code and
-Codex. It runs locally, reads local files, and does not call an API.
+Session Bandit indexes the JSONL session histories written by Claude Code,
+Codex, and BotBandit. It runs locally, reads local files, and does not call an
+API.
 
 ## Install
 
@@ -58,6 +59,7 @@ List sessions from all supported agents.
 session-bandit list --pretty
 session-bandit list --agent claude --pretty
 session-bandit list --agent codex --pretty
+session-bandit list --agent botbandit --pretty
 session-bandit list --project my-repo --pretty
 session-bandit list --sort importance --min-importance moderate --pretty
 session-bandit list --since 7d --pretty
@@ -68,7 +70,7 @@ Useful options:
 
 | Option | Description |
 | --- | --- |
-| `--agent <name>` | Filter by `claude` or `codex` |
+| `--agent <name>` | Filter by `claude`, `codex`, or `botbandit` |
 | `--project <text>` | Filter by project/cwd substring |
 | `--sort <field>` | `recent` (default) or `importance` |
 | `--min-importance <tier>` | Drop sessions below `trivial`, `light`, `moderate`, `substantive`, or `heavy` |
@@ -123,10 +125,11 @@ Useful options:
 ### `doctor`
 
 Check whether parser assumptions still match your local session files. This is
-useful when Claude Code or Codex changes their transcript format.
+useful when Claude Code, Codex, or BotBandit changes their transcript format.
 
 ```sh
 session-bandit doctor --pretty
+session-bandit doctor --agent botbandit --pretty
 ```
 
 ## Session Locations
@@ -137,6 +140,7 @@ Session Bandit scans these default locations:
 | --- | --- |
 | Claude Code | `~/.claude/projects/<encoded-cwd>/*.jsonl` |
 | Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` plus legacy flat files |
+| BotBandit | `~/.botbandit/sessions/*.jsonl` |
 
 ## Package Notes
 

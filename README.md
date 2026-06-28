@@ -1,7 +1,7 @@
 # Session Bandit
 
 Search, browse, and extract information from the local session transcripts
-written by your coding agents — Claude Code and Codex.
+written by your coding agents — Claude Code, Codex, and BotBandit.
 
 Every major coding agent writes its full session history to disk as JSONL.
 Session Bandit indexes those files locally — no API calls, no auth, no network.
@@ -10,16 +10,16 @@ ever done with every agent.
 
 ## Features
 
-- **Unified listing** across Claude Code and Codex sessions, sorted by most
+- **Unified listing** across Claude Code, Codex, and BotBandit sessions, sorted by most
   recent first, with filters by agent, project, and time period.
 - **Full transcripts** — read any session's normalized transcript with tool
   calls, inputs, outputs, and status indicators.
 - **Full-text search** across all session messages, with agent, project, and
   time-period filters.
-- **Agent recaps & compactions captured** — Claude's while-you-were-away recaps
-  and Codex's context-window compactions are no longer silently dropped; they're
-  carried as `summary` messages (with a `recap` / `compaction` subtype) and fed
-  to the digest so the synthesizing LLM can use them.
+- **Agent recaps, compactions, and memories captured** — Claude's
+  while-you-were-away recaps, Codex's context-window compactions, and
+  BotBandit's memory/compaction events are carried as `summary` messages and
+  fed to the digest so the synthesizing LLM can use them.
 - **Parsing health check** — `doctor` command validates that Session Bandit's
   parsing assumptions match your real session files (format drift, injection
   markers, unrecognized types, silent skips).
@@ -93,6 +93,7 @@ session-bandit list --pretty
 # Filter by agent
 session-bandit list --agent claude
 session-bandit list --agent codex
+session-bandit list --agent botbandit
 
 # Filter by project (substring match on project path / cwd)
 session-bandit list --project botbandit
@@ -142,7 +143,7 @@ session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [-
 
 | Flag | Description |
 |---|---|
-| `-a, --agent <name>` | Filter by agent: `claude` or `codex` |
+| `-a, --agent <name>` | Filter by agent: `claude`, `codex`, or `botbandit` |
 | `-p, --project <path>` | Filter by project (substring match on project/cwd) |
 | `--sort <field>` | `list`: sort by `recent` (default) or `importance` (substance score) |
 | `--min-importance <tier>` | `list`: drop sessions below tier (`trivial`\|`light`\|`moderate`\|`substantive`\|`heavy`) |
@@ -215,12 +216,14 @@ import {
   indexSessions,
   claudeAdapter,
   codexAdapter,
+  botbanditAdapter,
 } from "@session-bandit/core";
 
-// Index all sessions from both adapters
+// Index all sessions from all adapters
 const sessions = indexSessions([
   { adapter: claudeAdapter },
   { adapter: codexAdapter },
+  { adapter: botbanditAdapter },
 ]);
 
 // Or just one agent
@@ -234,14 +237,15 @@ const claudeSessions = indexSessions([{ adapter: claudeAdapter }]);
 //
 // Messages use a `role` of user | assistant | system | tool | summary.
 // `summary` messages carry runtime-generated summaries (Claude recaps,
-// Codex compactions) with a `subtype` of "recap" or "compaction".
+// Codex/BotBandit compactions, and BotBandit memories) with a `subtype`
+// such as "recap", "compaction", or "memory".
 ```
 
 ### Adapter interface
 
 ```ts
 interface Adapter {
-  readonly agent: AgentName;       // "claude" | "codex" | "gemini"
+  readonly agent: AgentName;       // "claude" | "codex" | "gemini" | "botbandit"
   defaultRoot(): string;           // e.g. "~/.claude/projects"
   discover(root: string): string[];// find session files under root
   parse(filePath: string): Session;// parse one file → normalized Session
@@ -259,6 +263,7 @@ Session Bandit scans these directories by default:
 |---|---|
 | Claude Code | `~/.claude/projects/<encoded-cwd>/*.jsonl` |
 | Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` (+ legacy flat files) |
+| BotBandit | `~/.botbandit/sessions/*.jsonl` |
 
 Codex has used three file formats over time — legacy `.json` (single object),
 flat `.jsonl` (no envelope), and modern envelope `.jsonl`. The Codex adapter
@@ -293,6 +298,7 @@ packages/
       adapters/
         claude.ts                Claude Code adapter
         codex.ts                 Codex adapter (3 formats)
+        botbandit.ts             BotBandit event-log adapter
     test/                        fixtures + tests
   cli/                           session-bandit — CLI
     src/
@@ -314,6 +320,7 @@ docs/
   adapters.md                    how to add an agent / adapt to format drift
   format-claude.md               Claude Code on-disk format reference
   format-codex.md                Codex on-disk format reference (3 historical formats)
+  format-botbandit.md            BotBandit event-log format reference
 skill/
   SKILL.md                       Codex agent skill (handoff + memory note generation)
 ```
@@ -322,9 +329,10 @@ skill/
 
 See [`docs/adapters.md`](docs/adapters.md) for how to add a new agent adapter
 or adapt an existing one when a provider changes its on-disk format. Per-agent
-format details live in [`docs/format-claude.md`](docs/format-claude.md) and
-[`docs/format-codex.md`](docs/format-codex.md). The rationale behind the
-structural choices is in [`docs/decisions.md`](docs/decisions.md).
+format details live in [`docs/format-claude.md`](docs/format-claude.md),
+[`docs/format-codex.md`](docs/format-codex.md), and
+[`docs/format-botbandit.md`](docs/format-botbandit.md). The rationale behind
+the structural choices is in [`docs/decisions.md`](docs/decisions.md).
 
 ## Roadmap
 
@@ -336,11 +344,10 @@ structural choices is in [`docs/decisions.md`](docs/decisions.md).
 - **`doctor` command** — parsing health check that validates adapter
   assumptions against real files (format drift, injection markers,
   unrecognized types).
+- **BotBandit adapter** — parses `~/.botbandit/sessions/*.jsonl` event logs,
+  including memory and compaction events as summary messages.
 
 **Next:**
-- **Skill definition** (separate repo) that calls `session-bandit extract
-  --prompt <kind>` and feeds the result to an LLM to write handoffs/memories
-  into a doc store.
 - **Gemini adapter** — the adapter guide uses Gemini as its worked example;
   implementing it would dogfood the guide and round out the big three agents.
 - **Usage tier** — read Claude's `~/.claude/stats-cache.json` for offline
