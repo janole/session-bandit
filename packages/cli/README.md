@@ -186,7 +186,7 @@ session-bandit redact-check 342647fa-5bf --pretty
 
 mkdir -p sessions/the-topic
 session-bandit export-md 342647fa-5bf \
-  --out sessions/the-topic/README.md \
+  --out sessions/the-topic/index.md \
   --report-out sessions/the-topic/redaction-report.json \
   --title "The topic"
 ```
@@ -195,6 +195,11 @@ Review both files before committing or publishing. The CLI does not push,
 deploy, call an LLM, or generate a generic HTML page; Markdown is the canonical
 offline artifact. If HTML is needed, generate it from the reviewed Markdown or
 redacted publishing bundle.
+
+The installable skill ships a default GitHub Pages template at
+`skill/templates/github-pages-default/`. Use that template for new publishing
+repos when you want polished static rendering without adding an HTML exporter to
+the CLI.
 
 ### `doctor`
 
