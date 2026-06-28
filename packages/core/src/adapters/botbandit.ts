@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
 import type { Adapter } from "../adapter.js";
-import type { Message, Session, ToolCall } from "../types.js";
+import type { Message, RelatedSessionReference, Session, ToolCall } from "../types.js";
 
 /**
  * BotBandit stores one JSONL event log per session under
@@ -365,26 +365,39 @@ function recordCodexProviderMetadata(providerMetadata: unknown, timestamp: strin
     const threadId = stringValue(entry.threadId);
     if (!threadId || ctx.wrappedCodexSessionIds.has(threadId)) { return; }
 
+    const relatedSession = wrappedCodexReference({
+        threadId,
+        turnId: stringValue(entry.turnId),
+        threadPath: stringValue(entry.threadPath),
+    });
     ctx.wrappedCodexSessionIds.add(threadId);
     ctx.messages.push({
         role: "summary",
         subtype: "wrapped_codex",
-        text: wrappedCodexText({
-            threadId,
-            turnId: stringValue(entry.turnId),
-            threadPath: stringValue(entry.threadPath),
-        }),
+        text: wrappedCodexText(relatedSession),
         toolCalls: [],
         timestamp,
+        metadata: { relatedSessions: [relatedSession] },
     });
 }
 
-function wrappedCodexText(metadata: { threadId: string; turnId?: string; threadPath?: string }): string
+function wrappedCodexReference(metadata: { threadId: string; turnId?: string; threadPath?: string }): RelatedSessionReference
+{
+    return {
+        agent: "codex",
+        kind: "wrapped_codex",
+        sessionId: metadata.threadId,
+        turnId: metadata.turnId,
+        path: metadata.threadPath,
+    };
+}
+
+function wrappedCodexText(metadata: RelatedSessionReference): string
 {
     return [
-        `Original Codex session: ${metadata.threadId}`,
+        `Original Codex session: ${metadata.sessionId}`,
         metadata.turnId ? `First observed turn: ${metadata.turnId}` : undefined,
-        metadata.threadPath ? `Codex session file: ${metadata.threadPath}` : undefined,
+        metadata.path ? `Codex session file: ${metadata.path}` : undefined,
     ].filter((line): line is string => Boolean(line)).join("\n");
 }
 

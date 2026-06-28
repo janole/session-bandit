@@ -9,6 +9,20 @@
 
 export type AgentName = "claude" | "codex" | "gemini" | "botbandit";
 
+/** Related source session referenced by a normalized message or published bundle. */
+export interface RelatedSessionReference {
+    agent: AgentName;
+    kind: string;
+    sessionId: string;
+    turnId?: string;
+    path?: string;
+}
+
+/** Optional machine-readable annotations that complement message text. */
+export interface MessageMetadata {
+    relatedSessions?: RelatedSessionReference[];
+}
+
 export interface Session {
     agent: AgentName;
     sessionId: string;
@@ -49,6 +63,8 @@ export interface Message {
      * semantic kind, not the raw provider string.
      */
     subtype?: string;
+    /** Machine-readable annotations used by downstream consumers such as publishing. */
+    metadata?: MessageMetadata;
 }
 
 export interface ToolCall {

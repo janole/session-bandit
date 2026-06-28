@@ -39,10 +39,23 @@ export {
     tierRank,
 } from "./digest.js";
 export { readJsonl } from "./jsonl.js";
+export {
+    buildPublishedSessionBundle,
+    type BuildPublishedSessionBundleOptions,
+    extractRelatedSessions,
+    type PublishedRedactionMode,
+    type PublishedSessionBundle,
+    type PublishedSessionKind,
+    type PublishedSessionManifest,
+    type PublishedSessionSource,
+    slugify,
+} from "./publish.js";
 export type {
     AgentName,
     Message,
+    MessageMetadata,
     MessageRole,
+    RelatedSessionReference,
     Session,
     ToolCall,
 } from "./types.js";
