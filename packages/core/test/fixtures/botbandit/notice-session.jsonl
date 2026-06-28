@@ -1,0 +1,5 @@
+{"type":"session_init","event_id":"01J00000000000000000000051","timestamp":"2026-06-28T14:00:00.000Z","id":"notice-session","schemaVersion":2}
+{"type":"config","event_id":"01J00000000000000000000052","config":{"profile":"default","provider":"openai","model":"gpt-5.5"}}
+{"type":"message","event_id":"01J00000000000000000000053","timestamp":"2026-06-28T14:00:01.000Z","message":{"role":"user","content":"Run tests."}}
+{"type":"notice","event_id":"01J00000000000000000000054","timestamp":"2026-06-28T14:00:02.000Z","variant":"info","text":"Auto-approved safe shell command by policy rule(s) bash(grep *)."}
+{"type":"message","event_id":"01J00000000000000000000055","timestamp":"2026-06-28T14:00:03.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Tests passed."}]}}
