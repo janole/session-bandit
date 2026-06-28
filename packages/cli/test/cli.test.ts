@@ -17,7 +17,7 @@ describe("cli entry point", () =>
     {
         const program = createProgram();
         expect(program.name()).toBe("session-bandit");
-        expect(program.version()).toBe("0.1.3");
+        expect(program.version()).toBe("0.1.4");
     });
 
     it("cli() does not throw on no args (shows help)", () => 
