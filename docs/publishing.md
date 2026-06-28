@@ -147,7 +147,8 @@ interface RedactionReport {
 Current redaction kinds:
 
 - `secretLike`: API-token-like values such as `sk-...`, `ghp_...`,
-  `glpat-...`, JWT-looking strings, and long opaque blobs in non-minimal modes.
+  `glpat-...`, and JWT-looking strings. Strict mode also redacts long opaque
+  hex/base64-like blobs; cautious preserves common git SHAs and content hashes.
 - `envAssignment`: sensitive environment assignments such as
   `SECRET_TOKEN=...`.
 - `email`: email addresses in non-minimal modes.
