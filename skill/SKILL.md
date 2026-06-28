@@ -45,7 +45,7 @@ Prefer the default machine-readable output when using Session Bandit as an
 agent tool:
 
 - `list` and `search` print JSON lines by default.
-- `extract` and `doctor` print JSON by default.
+- `extract`, `redact-check`, and `doctor` print JSON by default.
 - `show` prints a human-readable transcript.
 
 Use `--pretty` only when a human-readable terminal view is useful for browsing
@@ -115,6 +115,19 @@ session-bandit doctor --agent codex
 session-bandit doctor --agent botbandit
 ```
 
+### Check redaction before publishing
+
+```sh
+# JSON report by default
+session-bandit redact-check 342647fa-5bf
+
+# Human-readable report for review with the user
+session-bandit redact-check 342647fa-5bf --pretty
+
+# More conservative preview
+session-bandit redact-check 342647fa-5bf --redact strict
+```
+
 ## Writing a handoff note
 
 When asked to write a handoff note from a previous session:
@@ -157,6 +170,7 @@ When asked to create a memory note from a past session:
 - The `--prompt handoff` and `--prompt memory` templates are first drafts. Feel free to adapt the output format to the user's needs — the digest data is the valuable part, not the template text.
 - Use `--full` when you need the complete transcript for context (e.g. complex multi-step work). Without `--full`, the digest is compact and may omit details.
 - Claude recaps, Codex compactions, and BotBandit memory/compaction events are surfaced as `summary` messages and included in extracts. Treat them as useful synthesis context, but still ground handoffs and memories in the digest's files, errors, tests, and final turns.
+- Before helping publish or export a session publicly, run `session-bandit redact-check <sessionId> --pretty` and report the remaining risk. Automated redaction is best-effort, not proof of safety.
 - The substance score measures *activity* (tool calls, file writes, test runs), not *significance*. A short session can contain a critical decision. Read the key turns, not just the score.
 - Session IDs can be specified as prefixes (e.g. `342647fa` instead of the full UUID).
 - Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files, including format drift, injection markers, unrecognized types, and silent skips. Use `--agent claude`, `--agent codex`, or `--agent botbandit` to narrow the check.
