@@ -9,6 +9,7 @@ const fixtureRoot = join(__dirname, "..", "fixtures", "botbandit");
 const simpleFile = join(fixtureRoot, "simple-session.jsonl");
 const toolFile = join(fixtureRoot, "tool-session.jsonl");
 const summaryFile = join(fixtureRoot, "summary-session.jsonl");
+const codexWrapperFile = join(fixtureRoot, "codex-wrapper-session.jsonl");
 
 describe("botbanditAdapter basics", () =>
 {
@@ -28,7 +29,7 @@ describe("botbanditAdapter.discover", () =>
     it("finds top-level .jsonl session files", () =>
     {
         const files = botbanditAdapter.discover(fixtureRoot);
-        expect(files).toHaveLength(3);
+        expect(files).toHaveLength(4);
         expect(files).toEqual([...files].sort());
         expect(files.some(file => file.endsWith("simple-session.jsonl"))).toBe(true);
     });
@@ -36,6 +37,32 @@ describe("botbanditAdapter.discover", () =>
     it("returns [] for a missing root", () =>
     {
         expect(botbanditAdapter.discover(join(fixtureRoot, "nope"))).toEqual([]);
+    });
+});
+
+describe("botbanditAdapter.parse — wrapped Codex sessions", () =>
+{
+    let session!: Session;
+    beforeAll(() =>
+    {
+        session = botbanditAdapter.parse(codexWrapperFile);
+    });
+
+    it("emits one summary marker for the original Codex session", () =>
+    {
+        const summaries = session.messages.filter(message => message.subtype === "wrapped_codex");
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]!.role).toBe("summary");
+        expect(summaries[0]!.timestamp).toBe("2026-06-28T13:00:02.000Z");
+        expect(summaries[0]!.text).toContain("Original Codex session: thr_codex_123");
+        expect(summaries[0]!.text).toContain("First observed turn: turn_codex_1");
+        expect(summaries[0]!.text).toContain("Codex session file: /Users/ole/.codex/sessions/2026/06/28/rollout-2026-06-28T13-00-00-thr_codex_123.jsonl");
+    });
+
+    it("keeps the assistant transcript content", () =>
+    {
+        expect(session.messages.map(message => message.role)).toEqual(["user", "summary", "assistant", "assistant"]);
+        expect(session.messages.at(-1)!.text).toBe("Still on the same Codex thread.");
     });
 });
 

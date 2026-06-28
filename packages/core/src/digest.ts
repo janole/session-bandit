@@ -81,7 +81,7 @@ export interface DigestToolUsage {
 
 /** A runtime-generated summary captured from the transcript (not a user/assistant turn). */
 export interface DigestSummary {
-    /** Semantic kind: "recap" (Claude away_summary) | "compaction" (Codex compacted). */
+    /** Semantic kind: recap, compaction, memory, provenance marker, etc. */
     subtype: string;
     /** The summary text (a recap's content, or a compaction's derived note). */
     text: string;
@@ -121,7 +121,7 @@ export interface SessionDigest {
     // tool usage breakdown (sorted by count desc)
     tools: DigestToolUsage[];
 
-    // runtime-generated summaries (Claude recaps, Codex compactions), chronological
+    // runtime-generated summaries and provenance markers, chronological
     summaries: DigestSummary[];
 
     /** Present only when computed with `full: true` — the complete transcript. */

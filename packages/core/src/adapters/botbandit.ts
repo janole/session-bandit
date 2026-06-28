@@ -59,6 +59,7 @@ interface ProviderMessage
 {
     role?: string;
     content?: string | ProviderPart[];
+    providerMetadata?: Record<string, unknown>;
 }
 
 interface ProviderPart
@@ -73,6 +74,7 @@ interface ProviderPart
     approvalId?: string;
     approved?: boolean;
     reason?: string;
+    providerMetadata?: Record<string, unknown>;
 }
 
 interface ParseContext
@@ -85,7 +87,10 @@ interface ParseContext
     model: string | null;
     messages: Message[];
     callIndex: Map<string, ToolCall>;
+    wrappedCodexSessionIds: Set<string>;
 }
+
+const CODEX_PROVIDER_ID = "@janole/ai-sdk-provider-codex-asp";
 
 /** Event types known to the BotBandit session adapter. Exported for doctor diagnostics. */
 export const BOTBANDIT_KNOWN_EVENT_TYPES = new Set([
@@ -140,6 +145,7 @@ function parseBotBandit(filePath: string): Session
         model: null,
         messages: [],
         callIndex: new Map(),
+        wrappedCodexSessionIds: new Set(),
     };
 
     for (const event of parseLines(raw))
@@ -285,6 +291,7 @@ function processProviderMessage(event: BotBanditEvent, ctx: ParseContext): void
     if (!message) { return; }
 
     const timestamp = event.timestamp ?? null;
+    collectWrappedCodexSessions(message, timestamp, ctx);
 
     if (message.role === "user")
     {
@@ -335,6 +342,50 @@ function processProviderMessage(event: BotBanditEvent, ctx: ParseContext): void
         const text = contentText(message.content);
         if (text) { ctx.messages.push({ role: "system", text, toolCalls: [], timestamp }); }
     }
+}
+
+function collectWrappedCodexSessions(message: ProviderMessage, timestamp: string | null, ctx: ParseContext): void
+{
+    recordCodexProviderMetadata(message.providerMetadata, timestamp, ctx);
+
+    if (!Array.isArray(message.content)) { return; }
+    for (const part of message.content)
+    {
+        recordCodexProviderMetadata(part.providerMetadata, timestamp, ctx);
+    }
+}
+
+function recordCodexProviderMetadata(providerMetadata: unknown, timestamp: string | null, ctx: ParseContext): void
+{
+    if (!isRecord(providerMetadata)) { return; }
+
+    const entry = providerMetadata[CODEX_PROVIDER_ID];
+    if (!isRecord(entry)) { return; }
+
+    const threadId = stringValue(entry.threadId);
+    if (!threadId || ctx.wrappedCodexSessionIds.has(threadId)) { return; }
+
+    ctx.wrappedCodexSessionIds.add(threadId);
+    ctx.messages.push({
+        role: "summary",
+        subtype: "wrapped_codex",
+        text: wrappedCodexText({
+            threadId,
+            turnId: stringValue(entry.turnId),
+            threadPath: stringValue(entry.threadPath),
+        }),
+        toolCalls: [],
+        timestamp,
+    });
+}
+
+function wrappedCodexText(metadata: { threadId: string; turnId?: string; threadPath?: string }): string
+{
+    return [
+        `Original Codex session: ${metadata.threadId}`,
+        metadata.turnId ? `First observed turn: ${metadata.turnId}` : undefined,
+        metadata.threadPath ? `Codex session file: ${metadata.threadPath}` : undefined,
+    ].filter((line): line is string => Boolean(line)).join("\n");
 }
 
 function toolCallsFromParts(parts: ProviderPart[]): ToolCall[]
@@ -433,6 +484,16 @@ function toolResultStatus(output: unknown): "ok" | "error" | "unknown"
         if (type === "error" || type === "execution-denied") { return "error"; }
     }
     return "ok";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown>
+{
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string | undefined
+{
+    return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function memoryText(event: BotBanditEvent): string
