@@ -2,7 +2,7 @@
 
 Session Bandit publishing starts from the normalized `Session` model and
 `SessionDigest`; it does not re-parse raw provider JSONL. The P0 bundle is a
-pure in-memory contract for later Markdown and static-site exporters.
+pure in-memory contract for Markdown export and any later presentation layer.
 
 The core publishing path is deterministic and offline. It may derive structural
 fields such as title and slug from the digest, but it must not call an LLM or a
@@ -196,6 +196,13 @@ The Markdown contains:
 
 ## Next Phases
 
-P3 static HTML export should consume the same redacted bundle rather than
-reading raw sessions directly. It should write `index.html`, `session.json`,
-`manifest.json`, and `redaction-report.json` from the same contracts above.
+Markdown is the canonical deterministic artifact for now. The next phase should
+focus on the publishing workflow around `redact-check` and `export-md`: choosing
+the session/title/slug, writing to a GitHub Pages-style folder, reviewing the
+redaction report, and optionally committing the result.
+
+A static HTML renderer is intentionally deferred. If real Markdown publishing
+shows that HTML is needed, it should be a high-quality Markdown/bundle rendering
+layer, not a basic transcript dump. It should consume the same redacted bundle,
+remain static and readable without JavaScript, and avoid external network
+assets.
