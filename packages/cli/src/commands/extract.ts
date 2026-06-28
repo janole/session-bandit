@@ -12,7 +12,7 @@ export function makeExtractCommand(scanFn: ScanFn): Command
             "Emit a structured digest of a session (substance, files, commands, key turns)",
         )
         .argument("<sessionId>", "Session ID (or prefix)")
-        .option("-a, --agent <name>", "Filter by agent (claude | codex)")
+        .option("-a, --agent <name>", "Filter by agent (claude | codex | botbandit)")
         .option("--prompt <kind>", "Wrap the digest in a synthesis prompt (handoff | memory)")
         .option("--full", "Include the complete de-noised transcript")
         .option("--pretty", "Print a human-readable digest instead of JSON")
@@ -21,7 +21,7 @@ export function makeExtractCommand(scanFn: ScanFn): Command
             if (opts.agent && !isValidAgent(opts.agent)) 
             {
                 console.error(
-                    `Unknown agent: "${opts.agent}". Valid: claude, codex`,
+                    `Unknown agent: "${opts.agent}". Valid: claude, codex, botbandit`,
                 );
                 process.exitCode = 1;
                 return;

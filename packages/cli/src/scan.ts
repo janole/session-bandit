@@ -1,9 +1,10 @@
-import { type AdapterConfig, type AgentName, claudeAdapter, codexAdapter, computeSubstance, type ImportanceTier, indexSessions, type Session, tierRank } from "@session-bandit/core";
+import { type AdapterConfig, type AgentName, botbanditAdapter, claudeAdapter, codexAdapter, computeSubstance, type ImportanceTier, indexSessions, type Session, tierRank } from "@session-bandit/core";
 
 /** All adapters v1 knows about, in display order. */
 const ADAPTERS: AdapterConfig[] = [
     { adapter: claudeAdapter },
     { adapter: codexAdapter },
+    { adapter: botbanditAdapter },
 ];
 
 /** A function that returns a session index. */
@@ -150,5 +151,5 @@ export function filterByMinImportance(
 /** Validate that a string is a known agent name. */
 export function isValidAgent(name: string): name is AgentName 
 {
-    return name === "claude" || name === "codex" || name === "gemini";
+    return name === "claude" || name === "codex" || name === "gemini" || name === "botbandit";
 }

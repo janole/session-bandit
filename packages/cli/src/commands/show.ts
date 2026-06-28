@@ -9,13 +9,13 @@ export function makeShowCommand(scanFn: ScanFn): Command
     cmd
         .description("Print the normalized transcript of a session")
         .argument("<sessionId>", "Session ID (or prefix)")
-        .option("-a, --agent <name>", "Filter by agent (claude | codex)")
+        .option("-a, --agent <name>", "Filter by agent (claude | codex | botbandit)")
         .action((sessionId: string, opts: ShowOptions) => 
         {
             if (opts.agent && !isValidAgent(opts.agent)) 
             {
                 console.error(
-                    `Unknown agent: "${opts.agent}". Valid: claude, codex`,
+                    `Unknown agent: "${opts.agent}". Valid: claude, codex, botbandit`,
                 );
                 process.exitCode = 1;
                 return;

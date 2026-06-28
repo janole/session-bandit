@@ -33,8 +33,20 @@ function makeReport(): DoctorReport
                     unrecognizedItemTypes: {},
                 },
             },
+            {
+                agent: "botbandit",
+                root: "/home/user/.botbandit/sessions",
+                files: 3,
+                sessions: 3,
+                emptySessions: 0,
+                skippedCompressed: 0,
+                details: {
+                    schemaVersions: { "2": 3 },
+                    unrecognizedEventTypes: { mystery_event: 1 },
+                },
+            },
         ],
-        totals: { files: 1081, sessions: 1081, emptySessions: 2, skippedCompressed: 14 },
+        totals: { files: 1084, sessions: 1084, emptySessions: 2, skippedCompressed: 14 },
     };
 }
 
@@ -85,8 +97,8 @@ describe("doctor command", () =>
         const fn: DiagnoseFn = () => makeReport();
         const { stdout } = runCommand([], fn);
         const parsed = JSON.parse(stdout);
-        expect(parsed.totals.files).toBe(1081);
-        expect(parsed.agents).toHaveLength(2);
+        expect(parsed.totals.files).toBe(1084);
+        expect(parsed.agents).toHaveLength(3);
     });
 
     it("prints pretty with --pretty", () => 
@@ -97,6 +109,8 @@ describe("doctor command", () =>
         expect(stdout).toContain("Format distribution");
         expect(stdout).toContain("First user-message markers");
         expect(stdout).toContain("# AGENTS.md instructions for");
+        expect(stdout).toContain("Schema versions");
+        expect(stdout).toContain("mystery_event");
     });
 
     it("filters by agent with --agent codex", () => 
@@ -117,6 +131,15 @@ describe("doctor command", () =>
         const configs = fn.mock.calls[0]![0];
         expect(configs).toHaveLength(1);
         expect(configs[0]!.adapter.agent).toBe("claude");
+    });
+
+    it("filters by agent with --agent botbandit", () =>
+    {
+        const fn = vi.fn((_configs: AdapterConfig[]) => makeReport());
+        runCommand(["--agent", "botbandit"], fn);
+        const configs = fn.mock.calls[0]![0];
+        expect(configs).toHaveLength(1);
+        expect(configs[0]!.adapter.agent).toBe("botbandit");
     });
 
     it("errors on unknown agent", () => 

@@ -8,7 +8,7 @@ export function makeListCommand(scanFn: ScanFn): Command
     const cmd = new Command("list");
     cmd
         .description("List sessions, sorted by most recent first")
-        .option("-a, --agent <name>", "Filter by agent (claude | codex)")
+        .option("-a, --agent <name>", "Filter by agent (claude | codex | botbandit)")
         .option("-p, --project <path>", "Filter by project (substring match)")
         .option(
             "--sort <field>",
@@ -32,7 +32,7 @@ export function makeListCommand(scanFn: ScanFn): Command
             if (opts.agent && !isValidAgent(opts.agent)) 
             {
                 console.error(
-                    `Unknown agent: "${opts.agent}". Valid: claude, codex`,
+                    `Unknown agent: "${opts.agent}". Valid: claude, codex, botbandit`,
                 );
                 process.exitCode = 1;
                 return;

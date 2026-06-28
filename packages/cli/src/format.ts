@@ -1,5 +1,5 @@
 import type { Message, Session, ToolCall } from "@session-bandit/core";
-import { type AgentDoctorReport, type ClaudeDoctorDetails, type CodexDoctorDetails, computeSubstance, type DoctorReport, type ImportanceTier, type SessionDigest } from "@session-bandit/core";
+import { type AgentDoctorReport, type BotBanditDoctorDetails, type ClaudeDoctorDetails, type CodexDoctorDetails, computeSubstance, type DoctorReport, type ImportanceTier, type SessionDigest } from "@session-bandit/core";
 
 /** A compact session summary for `list` output. */
 export interface SessionSummary
@@ -515,6 +515,32 @@ function printAgentReport(a: AgentDoctorReport): void
         {
             console.log("");
             console.log(`  ⚠ Unmatched tool results (no matching tool_use id): ${d.unmatchedToolResults}`);
+        }
+    }
+
+    if (a.details && a.agent === "botbandit")
+    {
+        const d = a.details as BotBanditDoctorDetails;
+        const schemaVersions = Object.entries(d.schemaVersions);
+        if (schemaVersions.length > 0)
+        {
+            console.log("");
+            console.log("  Schema versions:");
+            for (const [version, count] of schemaVersions)
+            {
+                console.log(`    ${version}: ${count}`);
+            }
+        }
+
+        const eventTypes = Object.entries(d.unrecognizedEventTypes);
+        if (eventTypes.length > 0)
+        {
+            console.log("");
+            console.log("  ⚠ Unrecognized event types:");
+            for (const [type, count] of eventTypes)
+            {
+                console.log(`    ${count}× ${type}`);
+            }
         }
     }
 

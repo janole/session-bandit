@@ -1,6 +1,6 @@
 import type { DoctorReport } from "@session-bandit/core";
 // The same adapter configs used by scanAll.
-import { type AdapterConfig,claudeAdapter, codexAdapter, diagnoseAll } from "@session-bandit/core";
+import { type AdapterConfig,botbanditAdapter, claudeAdapter, codexAdapter, diagnoseAll } from "@session-bandit/core";
 import { Command } from "commander";
 
 import { printDoctorJson, printDoctorPretty } from "../format.js";
@@ -9,6 +9,7 @@ import { isValidAgent } from "../scan.js";
 const DEFAULT_ADAPTERS: AdapterConfig[] = [
     { adapter: claudeAdapter },
     { adapter: codexAdapter },
+    { adapter: botbanditAdapter },
 ];
 
 /** A function that produces a doctor report. */
@@ -24,13 +25,13 @@ export function makeDoctorCommand(diagnoseFn: DiagnoseFn = defaultDiagnose): Com
         .description(
             "Diagnose parsing health — checks format drift, injection markers, and silent skips against real session files",
         )
-        .option("-a, --agent <name>", "Check only one agent (claude | codex)")
+        .option("-a, --agent <name>", "Check only one agent (claude | codex | botbandit)")
         .option("--pretty", "Print a human-readable report instead of JSON")
         .action((opts: DoctorOptions) => 
         {
             if (opts.agent && !isValidAgent(opts.agent)) 
             {
-                console.error(`Unknown agent: "${opts.agent}". Valid: claude, codex`);
+                console.error(`Unknown agent: "${opts.agent}". Valid: claude, codex, botbandit`);
                 process.exitCode = 1;
                 return;
             }
