@@ -167,8 +167,34 @@ session-bandit redact-check <sessionId> [--redact strict|cautious|minimal|none] 
 `redact-check` defaults to `cautious` at the command layer. The lower-level
 bundle builder remains policy-neutral and defaults to `none`.
 
+## Markdown Export
+
+`renderPublishedSessionMarkdown(bundle)` renders a redacted published bundle as
+GitHub-flavored Markdown. The renderer is pure and writes no files. The CLI
+wraps it as:
+
+```sh
+session-bandit export-md <sessionId> --out ./session.md [--redact cautious] [--report-out ./redaction-report.json]
+```
+
+`export-md` builds the bundle, applies redaction, renders Markdown, and writes
+the output path. It defaults to `cautious`; `--redact none` is refused unless
+`--yes` is also provided. `--report-out` writes the same redaction report shape
+used by `redact-check`.
+
+The Markdown contains:
+
+- YAML frontmatter with title, slug, source session, and redaction mode.
+- Source/provenance section.
+- Digest section with goal, final state, files, tests, and errors.
+- Related sessions when available, including BotBandit wrapped-Codex
+  provenance.
+- Summary sections for `memory`, `compaction`, `wrapped_codex`, `recap`, and
+  unknown summary subtypes.
+- Full transcript with tool calls in `<details>` blocks.
+
 ## Next Phases
 
-P2/P3 Markdown and HTML exporters should consume the redacted bundle rather than
-reading raw sessions directly. Export commands should write `redaction-report.json`
-using the report shape above.
+P3 static HTML export should consume the same redacted bundle rather than
+reading raw sessions directly. It should write `index.html`, `session.json`,
+`manifest.json`, and `redaction-report.json` from the same contracts above.

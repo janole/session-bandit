@@ -123,6 +123,10 @@ session-bandit extract 342647fa-5bf --prompt memory
 session-bandit redact-check 342647fa-5bf --pretty
 session-bandit redact-check 342647fa-5bf --redact strict
 
+# Export a redacted Markdown session artifact
+session-bandit export-md 342647fa-5bf --out ./session.md
+session-bandit export-md 342647fa-5bf --out ./session.md --report-out ./redaction-report.json
+
 # Find the sessions where something actually happened (by substance score)
 session-bandit list --sort importance --pretty
 
@@ -147,6 +151,7 @@ session-bandit show <sessionId> [--agent <name>]
 session-bandit search <query> [--agent <name>] [--project <path>] [--since <date>] [--until <date>] [--pretty]
 session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [--full] [--pretty]
 session-bandit redact-check <sessionId> [--agent <name>] [--redact strict|cautious|minimal|none] [--pretty]
+session-bandit export-md <sessionId> --out <path> [--agent <name>] [--title <title>] [--redact strict|cautious|minimal|none] [--report-out <path>] [--yes]
 ```
 
 | Flag | Description |
@@ -160,6 +165,9 @@ session-bandit redact-check <sessionId> [--agent <name>] [--redact strict|cautio
 | `--prompt <kind>` | `extract`: wrap the digest in a synthesis prompt (`handoff`\|`memory`) |
 | `--full` | `extract`: include the complete de-noised transcript |
 | `--redact <mode>` | `redact-check`: choose `strict`, `cautious` (default), `minimal`, or `none` |
+| `--out <path>` | `export-md`: Markdown output path |
+| `--report-out <path>` | `export-md`: optional redaction report JSON output path |
+| `--yes` | `export-md`: required with `--redact none` |
 | `--pretty` | Print human-readable output instead of JSON lines |
 
 **Output defaults to JSON lines** (one object per line) for machine
