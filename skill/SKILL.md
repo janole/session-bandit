@@ -128,6 +128,18 @@ session-bandit redact-check 342647fa-5bf --pretty
 session-bandit redact-check 342647fa-5bf --redact strict
 ```
 
+### Export Markdown for review/publishing
+
+```sh
+session-bandit export-md 342647fa-5bf --out ./session.md
+session-bandit export-md 342647fa-5bf --out ./session.md --report-out ./redaction-report.json
+session-bandit export-md 342647fa-5bf --out ./session.md --title "Apple Watch interface"
+```
+
+`export-md` defaults to `--redact cautious`. Do not use `--redact none` for a
+public artifact unless the user explicitly asks for it and accepts the risk; the
+CLI requires `--yes` for that mode.
+
 ## Writing a handoff note
 
 When asked to write a handoff note from a previous session:
@@ -171,6 +183,7 @@ When asked to create a memory note from a past session:
 - Use `--full` when you need the complete transcript for context (e.g. complex multi-step work). Without `--full`, the digest is compact and may omit details.
 - Claude recaps, Codex compactions, and BotBandit memory/compaction events are surfaced as `summary` messages and included in extracts. Treat them as useful synthesis context, but still ground handoffs and memories in the digest's files, errors, tests, and final turns.
 - Before helping publish or export a session publicly, run `session-bandit redact-check <sessionId> --pretty` and report the remaining risk. Automated redaction is best-effort, not proof of safety.
+- For a Markdown export, prefer `session-bandit export-md <sessionId> --out <path> --report-out <reportPath>`, then inspect the report before suggesting commit/publish.
 - The substance score measures *activity* (tool calls, file writes, test runs), not *significance*. A short session can contain a critical decision. Read the key turns, not just the score.
 - Session IDs can be specified as prefixes (e.g. `342647fa` instead of the full UUID).
 - Run `session-bandit doctor` if something seems off — it checks whether the parsing assumptions match your real session files, including format drift, injection markers, unrecognized types, and silent skips. Use `--agent claude`, `--agent codex`, or `--agent botbandit` to narrow the check.
