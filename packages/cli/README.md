@@ -37,6 +37,9 @@ session-bandit extract 342647fa-5bf --prompt memory
 # Preview redaction findings before publishing/exporting
 session-bandit redact-check 342647fa-5bf --pretty
 
+# Export a redacted Markdown artifact
+session-bandit export-md 342647fa-5bf --out ./session.md
+
 # Check parser health against your real session files
 session-bandit doctor --pretty
 ```
@@ -52,6 +55,7 @@ session-bandit show [options] <sessionId>
 session-bandit search [options] <query>
 session-bandit extract [options] <sessionId>
 session-bandit redact-check [options] <sessionId>
+session-bandit export-md [options] <sessionId>
 session-bandit doctor [options]
 ```
 
@@ -146,6 +150,30 @@ Useful options:
 | `--redact minimal` | Only high-confidence secrets |
 | `--redact none` | No redaction; useful only for local debugging |
 | `--pretty` | Print a readable report instead of JSON |
+
+### `export-md`
+
+Export a session as a Markdown file. The command builds the publishing bundle,
+applies redaction, then renders Markdown with frontmatter, digest, provenance,
+summaries, transcript, and collapsible tool calls.
+
+```sh
+session-bandit export-md 342647fa-5bf --out ./session.md
+session-bandit export-md 342647fa-5bf --out ./session.md --title "Apple Watch interface"
+session-bandit export-md 342647fa-5bf --out ./session.md --report-out ./redaction-report.json
+```
+
+Useful options:
+
+| Option | Description |
+| --- | --- |
+| `--out <path>` | Required Markdown output path |
+| `--title <title>` | Override the digest-derived title |
+| `--redact cautious` | Default redaction mode |
+| `--redact strict` | More conservative redaction |
+| `--redact minimal` | Only high-confidence secrets |
+| `--redact none --yes` | Disable redaction explicitly |
+| `--report-out <path>` | Write the redaction report JSON |
 
 ### `doctor`
 

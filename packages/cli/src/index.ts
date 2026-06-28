@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 
 import { makeDoctorCommand } from "./commands/doctor.js";
+import { makeExportMdCommand } from "./commands/export-md.js";
 import { makeExtractCommand } from "./commands/extract.js";
 import { makeListCommand } from "./commands/list.js";
 import { makeRedactCheckCommand } from "./commands/redact-check.js";
@@ -49,6 +50,7 @@ export function createProgram(): Command
     program.addCommand(makeSearchCommand(scanAll));
     program.addCommand(makeExtractCommand(scanAll));
     program.addCommand(makeRedactCheckCommand(scanAll));
+    program.addCommand(makeExportMdCommand(scanAll));
     program.addCommand(makeDoctorCommand());
 
     return program;
