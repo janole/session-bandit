@@ -67,6 +67,34 @@ String content is used directly. Array content is projected structurally:
 Matched tool results update the original assistant tool call and do not emit a
 separate normalized tool message.
 
+## Wrapped Codex sessions
+
+When BotBandit uses the `codex` provider, it may be wrapping or remote
+controlling an underlying Codex app-server session. The Codex AI SDK provider
+persists that source session as provider metadata:
+
+```json
+{
+  "providerMetadata": {
+    "@janole/ai-sdk-provider-codex-asp": {
+      "threadId": "thr_...",
+      "turnId": "turn_...",
+      "threadPath": "~/.codex/sessions/..."
+    }
+  }
+}
+```
+
+Session Bandit scans message-level and content-part `providerMetadata` for that
+entry. The first observed `threadId` is emitted once as a summary marker:
+
+```ts
+{ role: "summary", subtype: "wrapped_codex", text: "Original Codex session: ..." }
+```
+
+The raw BotBandit transcript remains intact; this marker only preserves
+provenance for detailed views and handoff extracts.
+
 ## Memory and compaction
 
 BotBandit has first-class persisted summaries:
@@ -81,6 +109,7 @@ Session Bandit preserves both as `role: "summary"` messages:
 ```ts
 { role: "summary", subtype: "memory", ... }
 { role: "summary", subtype: "compaction", ... }
+{ role: "summary", subtype: "wrapped_codex", ... }
 ```
 
 These summaries are high-signal input for `session-bandit extract --prompt
