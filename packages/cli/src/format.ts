@@ -355,7 +355,7 @@ ${d.files.written.map((f) => "  - " + f).join("\n") || "  (none)"}
 Errors:
 ${d.errors.map((e) => "  - " + e.name + (e.output ? ": " + truncate(e.output, 160) : "")).join("\n") || "  (none)"}
 
-Agent's own recaps/summaries (while-you-were-away & compaction notes — high-signal synthesis fuel):
+Agent summaries and provenance notes (recaps, memories, compactions, wrapped sessions):
 ${d.summaries.map((s) => "  - [" + s.subtype + "] " + truncate(s.text, 400)).join("\n") || "  (none)"}
 
 Goal:
@@ -376,7 +376,7 @@ Substance: ${d.substance.tier} (score ${d.substance.score}) — ${d.substance.si
 Files written:
 ${d.files.written.map((f) => "  - " + f).join("\n") || "  (none)"}
 
-Agent's own recaps/summaries:
+Agent summaries and provenance notes:
 ${d.summaries.map((s) => "  - [" + s.subtype + "] " + truncate(s.text, 400)).join("\n") || "  (none)"}
 
 Goal:

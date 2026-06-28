@@ -169,7 +169,7 @@ describe("extract command", () =>
         expect(stdout).toContain("Refactor the parser.");
         expect(stdout).toContain("structured digest (JSON)");
         // the recap feeds the synthesis prompt
-        expect(stdout).toContain("recaps/summaries");
+        expect(stdout).toContain("summaries and provenance notes");
         expect(stdout).toContain("Next: update the README.");
     });
 
