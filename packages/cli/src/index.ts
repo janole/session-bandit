@@ -7,6 +7,7 @@ import { Command } from "commander";
 import { makeDoctorCommand } from "./commands/doctor.js";
 import { makeExtractCommand } from "./commands/extract.js";
 import { makeListCommand } from "./commands/list.js";
+import { makeRedactCheckCommand } from "./commands/redact-check.js";
 import { makeSearchCommand } from "./commands/search.js";
 import { makeShowCommand } from "./commands/show.js";
 import { scanAll } from "./scan.js";
@@ -47,6 +48,7 @@ export function createProgram(): Command
     program.addCommand(makeShowCommand(scanAll));
     program.addCommand(makeSearchCommand(scanAll));
     program.addCommand(makeExtractCommand(scanAll));
+    program.addCommand(makeRedactCheckCommand(scanAll));
     program.addCommand(makeDoctorCommand());
 
     return program;

@@ -1,4 +1,4 @@
-import type { Message, Session, ToolCall } from "@session-bandit/core";
+import type { Message, RedactionReport, Session, ToolCall } from "@session-bandit/core";
 import { type AgentDoctorReport, type BotBanditDoctorDetails, type ClaudeDoctorDetails, type CodexDoctorDetails, computeSubstance, type DoctorReport, type ImportanceTier, type SessionDigest } from "@session-bandit/core";
 
 /** A compact session summary for `list` output. */
@@ -411,6 +411,43 @@ export function printDigestPrompt(
 ): void 
 {
     console.log(renderDigestPrompt(d, kind));
+}
+
+// ---- redaction output -------------------------------------------------------
+
+/** Print a redaction report as JSON. */
+export function printRedactionReportJson(report: RedactionReport): void
+{
+    console.log(JSON.stringify(report));
+}
+
+/** Print a redaction report in a human-readable layout. */
+export function printRedactionReportPretty(session: Session, report: RedactionReport): void
+{
+    console.log(`Session: ${session.sessionId}`);
+    console.log(`Agent:   ${session.agent}`);
+    console.log(`Mode:    ${report.mode}`);
+    console.log("");
+
+    console.log("Findings:");
+    for (const [kind, count] of Object.entries(report.counts))
+    {
+        console.log(`  ${kind}: ${count}`);
+    }
+
+    if (report.findings.length > 0)
+    {
+        console.log("");
+        console.log("Sample findings:");
+        for (const finding of report.findings.slice(0, 20))
+        {
+            console.log(`  ${finding.kind}  ${finding.path}  -> ${finding.replacement}`);
+        }
+        if (report.findings.length > 20)
+        {
+            console.log(`  ... and ${report.findings.length - 20} more`);
+        }
+    }
 }
 
 /** Parse and validate a `--min-importance` tier argument. Returns null if not a tier. */

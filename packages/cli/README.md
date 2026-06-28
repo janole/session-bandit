@@ -34,6 +34,9 @@ session-bandit extract 342647fa-5bf --pretty
 session-bandit extract 342647fa-5bf --prompt handoff
 session-bandit extract 342647fa-5bf --prompt memory
 
+# Preview redaction findings before publishing/exporting
+session-bandit redact-check 342647fa-5bf --pretty
+
 # Check parser health against your real session files
 session-bandit doctor --pretty
 ```
@@ -48,6 +51,7 @@ session-bandit list [options]
 session-bandit show [options] <sessionId>
 session-bandit search [options] <query>
 session-bandit extract [options] <sessionId>
+session-bandit redact-check [options] <sessionId>
 session-bandit doctor [options]
 ```
 
@@ -121,6 +125,27 @@ Useful options:
 | `--prompt memory` | Wrap the digest in a memory-note prompt |
 | `--full` | Include the complete de-noised transcript |
 | `--pretty` | Print a readable digest instead of JSON |
+
+### `redact-check`
+
+Preview the redaction report that publishing/export commands will use. This
+does not write any files.
+
+```sh
+session-bandit redact-check 342647fa-5bf
+session-bandit redact-check 342647fa-5bf --pretty
+session-bandit redact-check 342647fa-5bf --redact strict
+```
+
+Useful options:
+
+| Option | Description |
+| --- | --- |
+| `--redact strict` | Most conservative mode |
+| `--redact cautious` | Default mode |
+| `--redact minimal` | Only high-confidence secrets |
+| `--redact none` | No redaction; useful only for local debugging |
+| `--pretty` | Print a readable report instead of JSON |
 
 ### `doctor`
 
