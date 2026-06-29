@@ -225,6 +225,11 @@ template with custom layouts and CSS for exported session Markdown. The template
 does not change the publishing contract: generated sessions still live at
 `sessions/<slug>/index.md`, with `redaction-report.json` beside them.
 
+For local design iteration, the template includes
+`skill/templates/github-pages-default/.design/session-page.html`. Open it
+directly in a browser to test layout and overflow changes without Jekyll or a
+Pages deploy.
+
 The skill can copy the template into an empty publishing repo. In an existing
 repo it should avoid overwriting `_config.yml`, `_layouts/`, `assets/`,
 `index.md`, or `README.md` without user approval.
