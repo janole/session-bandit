@@ -241,6 +241,7 @@ a:hover {
 }
 
 .session-metadata div {
+  align-items: baseline;
   display: grid;
   gap: 8px;
   grid-template-columns: 92px minmax(0, 1fr);
@@ -255,10 +256,12 @@ a:hover {
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 800;
+  line-height: 1.35;
   text-transform: uppercase;
 }
 
 .session-metadata dd {
+  line-height: 1.35;
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
