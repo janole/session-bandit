@@ -376,8 +376,10 @@ a:hover {
 }
 
 .session-turn-assistant {
-  background: color-mix(in srgb, var(--accent) 4%, white);
-  border-left-color: var(--accent);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 8px 4px 10px;
 }
 
 .session-turn-tool,
