@@ -62,6 +62,7 @@ describe("renderPublishedSessionMarkdown", () =>
         expect(markdown).toContain("## Session Transcript");
         expect(markdown).toContain("### User");
         expect(markdown).toContain("### Assistant");
+        expect(markdown).toContain("2026-06-28T12:01:00.000Z · model: claude-sonnet-4-6");
         expect(markdown).toContain("### Tools");
         expect(markdown).toContain("### System");
         expect(markdown).toContain("[error] Turn failed.");
