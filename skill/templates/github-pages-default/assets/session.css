@@ -293,15 +293,28 @@ a:hover {
   display: none;
 }
 
+.session-body h1,
 .session-body h2 {
   border-top: 1px solid var(--line);
-  font-size: clamp(1.45rem, 3vw, 2.25rem);
   letter-spacing: 0;
-  line-height: 1.12;
-  margin: 48px 0 18px;
-  padding-top: 34px;
+  line-height: 1.25;
+  margin: 40px 0 16px;
+  padding-top: 28px;
+  overflow-wrap: anywhere;
 }
 
+.session-body h1 {
+  font-size: clamp(1.5rem, 2.4vw, 1.95rem);
+  font-weight: 620;
+}
+
+.session-body h2 {
+  font-size: clamp(1.28rem, 2vw, 1.58rem);
+  font-weight: 620;
+  line-height: 1.3;
+}
+
+.session-body h1:first-child,
 .session-body h2:first-child,
 .session-body p:first-child + h2 {
   border-top: 0;
@@ -311,10 +324,30 @@ a:hover {
 
 .session-body h3 {
   color: var(--accent-strong);
-  font-size: 1.12rem;
+  font-size: 1.08rem;
+  font-weight: 680;
   letter-spacing: 0;
-  margin: 30px 0 10px;
+  line-height: 1.35;
+  margin: 26px 0 10px;
   overflow-wrap: anywhere;
+}
+
+.session-body h4,
+.session-body h5,
+.session-body h6 {
+  color: var(--ink);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.4;
+  margin: 22px 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.session-body h5,
+.session-body h6 {
+  color: var(--muted);
+  font-size: 0.94rem;
 }
 
 .published-transcript {
@@ -337,7 +370,7 @@ a:hover {
   padding: clamp(18px, 3vw, 26px);
 }
 
-.session-turn h3 {
+.session-turn > h3:first-child {
   align-items: center;
   color: var(--ink);
   display: flex;
@@ -350,11 +383,26 @@ a:hover {
   text-transform: uppercase;
 }
 
-.session-turn h3::after {
+.session-turn > h3:first-child::after {
   background: var(--line);
   content: "";
   flex: 1;
   height: 1px;
+}
+
+.session-turn h1,
+.session-turn h2 {
+  border-top: 0;
+  margin: 26px 0 10px;
+  padding-top: 0;
+}
+
+.session-turn h1 {
+  font-size: 1.26rem;
+}
+
+.session-turn h2 {
+  font-size: 1.16rem;
 }
 
 .session-turn > p:last-child,
