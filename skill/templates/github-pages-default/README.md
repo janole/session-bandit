@@ -25,3 +25,10 @@ the repository root as the publishing source.
 
 The template uses Jekyll defaults in `_config.yml` so files under
 `sessions/<slug>/index.md` automatically use the session layout.
+
+## Design Fixture
+
+Open `.design/session-page.html` directly in a browser to test layout changes
+without running Jekyll or publishing to GitHub Pages. It uses the same CSS as
+the real site and includes long titles, metadata, inline code, and tool output
+that should not create horizontal page scroll.
