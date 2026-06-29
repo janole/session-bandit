@@ -136,6 +136,7 @@ a:hover {
   line-height: 0.98;
   margin: 0;
   max-width: 920px;
+  overflow-wrap: anywhere;
 }
 
 .home-copy {
@@ -196,6 +197,7 @@ a:hover {
 .session-card-title {
   font-size: 1.18rem;
   font-weight: 760;
+  overflow-wrap: anywhere;
 }
 
 .session-card-meta {
@@ -229,6 +231,10 @@ a:hover {
   padding: 56px max(20px, calc((100vw - var(--wide)) / 2)) 38px;
 }
 
+.session-hero > * {
+  min-width: 0;
+}
+
 .session-metadata {
   align-self: end;
   background: var(--surface);
@@ -238,6 +244,7 @@ a:hover {
   display: grid;
   gap: 0;
   margin: 0;
+  min-width: 0;
 }
 
 .session-metadata div {
@@ -267,6 +274,10 @@ a:hover {
   overflow-wrap: anywhere;
 }
 
+.session-metadata code {
+  white-space: normal;
+}
+
 .session-body {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -274,6 +285,7 @@ a:hover {
   box-shadow: var(--shadow);
   margin: 34px auto 0;
   max-width: min(calc(100vw - 40px), 980px);
+  min-width: 0;
   padding: clamp(24px, 5vw, 58px);
 }
 
@@ -302,11 +314,13 @@ a:hover {
   font-size: 1.12rem;
   letter-spacing: 0;
   margin: 30px 0 10px;
+  overflow-wrap: anywhere;
 }
 
 .published-transcript {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .published-transcript > h2 {
@@ -319,6 +333,7 @@ a:hover {
   border-left: 5px solid var(--muted);
   border-radius: 8px;
   display: flow-root;
+  min-width: 0;
   padding: clamp(18px, 3vw, 26px);
 }
 
@@ -331,6 +346,7 @@ a:hover {
   gap: 10px;
   letter-spacing: 0.08em;
   margin: 0 0 14px;
+  min-width: 0;
   text-transform: uppercase;
 }
 
@@ -382,6 +398,7 @@ a:hover {
 .session-body ol,
 .session-body blockquote {
   max-width: var(--measure);
+  overflow-wrap: anywhere;
 }
 
 .session-body li + li {
@@ -401,6 +418,7 @@ a:hover {
   border-radius: 6px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9em;
+  overflow-wrap: anywhere;
   padding: 0.12em 0.34em;
 }
 
@@ -411,6 +429,7 @@ a:hover {
   line-height: 1.5;
   margin: 18px 0 24px;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   padding: 18px;
 }
@@ -427,6 +446,7 @@ a:hover {
   display: block;
   margin: 18px 0 28px;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
 }
 
@@ -449,6 +469,7 @@ a:hover {
   border: 1px solid var(--line);
   border-radius: 8px;
   margin: 14px 0;
+  min-width: 0;
   overflow: hidden;
 }
 
@@ -457,6 +478,7 @@ a:hover {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.9rem;
   font-weight: 760;
+  overflow-wrap: anywhere;
   padding: 12px 14px;
 }
 
@@ -467,6 +489,7 @@ a:hover {
 .session-body details > :not(summary) {
   margin-left: 14px;
   margin-right: 14px;
+  max-width: calc(100% - 28px);
 }
 
 .session-body hr {
