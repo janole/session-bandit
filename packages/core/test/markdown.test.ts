@@ -24,7 +24,7 @@ describe("renderPublishedSessionMarkdown", () =>
                         name: "Bash",
                         input: { command: "npm test" },
                         status: "ok",
-                        output: "3 passing",
+                        output: "3 passing\nliteral </details>\n<section class=\"owned\">bad</section>\n````",
                     },
                 ],
                 timestamp: "2026-06-28T12:01:00.000Z",
@@ -69,6 +69,10 @@ describe("renderPublishedSessionMarkdown", () =>
         expect(markdown).toContain("<summary>Bash - ok</summary>");
         expect(markdown).toContain("\"command\": \"npm test\"");
         expect(markdown).toContain("3 passing");
+        expect(markdown.match(/<\/details>/g)).toHaveLength(1);
+        expect(markdown).not.toContain("<section class=\"owned\">");
+        expect(markdown).toContain("&lt;section class=\"owned\"&gt;bad&lt;/section&gt;");
+        expect(markdown).toContain("````");
     });
 
     it("renders BotBandit wrapped Codex provenance and summary labels", () =>

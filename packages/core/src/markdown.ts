@@ -186,22 +186,19 @@ function renderToolCall(lines: string[], toolCall: ToolCall): void
     lines.push("<details>");
     lines.push(`<summary>${escapeHtml(toolCall.name)} - ${toolCall.status}</summary>`);
     lines.push("");
-    lines.push("Input:");
-    lines.push("");
-    lines.push("````json");
-    lines.push(formatJson(toolCall.input));
-    lines.push("````");
-    lines.push("");
+    renderCodeBlock(lines, "Input:", "json", formatJson(toolCall.input));
     if (toolCall.output)
     {
-        lines.push("Output:");
-        lines.push("");
-        lines.push("````text");
-        lines.push(toolCall.output);
-        lines.push("````");
-        lines.push("");
+        renderCodeBlock(lines, "Output:", "text", toolCall.output);
     }
     lines.push("</details>");
+    lines.push("");
+}
+
+function renderCodeBlock(lines: string[], label: string, language: string, value: string): void
+{
+    lines.push(`<p>${label}</p>`);
+    lines.push(`<pre><code class="language-${language}">${escapeHtml(value)}</code></pre>`);
     lines.push("");
 }
 
