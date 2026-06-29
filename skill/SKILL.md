@@ -209,6 +209,8 @@ Template behavior:
   `sessions/<slug>/redaction-report.json`.
 - It uses `_config.yml` defaults so exported Session Bandit Markdown gets the
   session layout automatically.
+- It includes a local `.design/session-page.html` fixture for layout checks
+  without Jekyll or a Pages deploy.
 - It is static and self-contained; do not add external assets, trackers, fonts,
   or remote scripts unless the user explicitly asks.
 
@@ -222,6 +224,11 @@ When the repo already exists, do not overwrite `_config.yml`, `_layouts/`,
 `assets/session.css`, `index.md`, or `README.md` without asking. Add or update
 only `sessions/<slug>/index.md`, `sessions/<slug>/redaction-report.json`, and
 an index entry if the user wants a manual index.
+
+For visual template changes, prefer checking
+`templates/github-pages-default/.design/session-page.html` locally before
+publishing. It is intentionally built from plain HTML, so it does not require
+Jekyll.
 
 ## Writing a handoff note
 
