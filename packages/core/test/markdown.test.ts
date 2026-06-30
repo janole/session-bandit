@@ -145,6 +145,36 @@ describe("renderPublishedSessionMarkdown", () =>
         expect(markdown).toContain("<p>Sub-agent session: <a href=\"../sub-coder-123/\">Build the watch app (<code>sub-coder-123</code>)</a></p>");
     });
 
+    it("separates fenced code blocks inside transcript list items for Kramdown", () =>
+    {
+        const session = makeSession([
+            {
+                role: "assistant",
+                text: [
+                    "- `apps/ios/project.yml`: added the dependency:",
+                    "  ```yaml",
+                    "  dependencies:",
+                    "    - target: BotBanditCore",
+                    "    - target: BotBanditWatch",
+                    "      embed: true",
+                    "  ```",
+                    "- `xcodegen generate` passed.",
+                ].join("\n"),
+                toolCalls: [],
+                timestamp: "2026-06-28T12:01:00.000Z",
+            },
+        ]);
+        const bundle = buildPublishedSessionBundle(session, {
+            title: "Nested Code Fence",
+            generatedAt: "2026-06-28T12:05:00.000Z",
+        });
+
+        const markdown = renderPublishedSessionMarkdown(bundle);
+
+        expect(markdown).toContain("- `apps/ios/project.yml`: added the dependency:\n\n  ```yaml");
+        expect(markdown).toContain("  ```\n\n- `xcodegen generate` passed.");
+    });
+
     it("renders redacted bundles without leaking sensitive originals", () =>
     {
         const session = makeSession([

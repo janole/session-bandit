@@ -190,10 +190,45 @@ function renderMessageTurn(lines: string[], message: Message, model: string | nu
     lines.push("");
     const metadata = turnMetadata(message, model);
     if (metadata) { lines.push(`<p class="turn-timestamp">${escapeHtml(metadata)}</p>`); lines.push(""); }
-    lines.push(message.text);
+    lines.push(normalizeMessageMarkdown(message.text));
     lines.push("");
     lines.push("</section>");
     lines.push("");
+}
+
+function normalizeMessageMarkdown(text: string): string
+{
+    const input = text.split("\n");
+    const output: string[] = [];
+    let inFence = false;
+
+    for (let i = 0; i < input.length; i++)
+    {
+        const line = input[i]!;
+        const isFence = /^\s*(```+|~~~+)/.test(line);
+        if (!isFence)
+        {
+            output.push(line);
+            continue;
+        }
+
+        const wasInFence = inFence;
+        if (!wasInFence && output.length > 0 && output[output.length - 1]!.trim() !== "")
+        {
+            output.push("");
+        }
+
+        output.push(line);
+        inFence = !inFence;
+
+        const next = input[i + 1];
+        if (wasInFence && next !== undefined && next.trim() !== "")
+        {
+            output.push("");
+        }
+    }
+
+    return output.join("\n");
 }
 
 function turnMetadata(message: Message, model: string | null): string | null
