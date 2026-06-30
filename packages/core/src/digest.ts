@@ -11,7 +11,7 @@
  * Session Bandit never calls an LLM. See `docs/extract.md`.
  */
 
-import type { AgentName, Message, Session, ToolCall } from "./types.js";
+import type { AgentName, Message, RelatedSessionReference, Session, ToolCall } from "./types.js";
 
 // ---- types -----------------------------------------------------------------
 
@@ -86,6 +86,7 @@ export interface DigestSummary {
     /** The summary text (a recap's content, or a compaction's derived note). */
     text: string;
     timestamp: string | null;
+    relatedSessions?: RelatedSessionReference[];
 }
 
 export interface SessionDigest {
@@ -408,6 +409,7 @@ function extractSummaries(session: Session): DigestSummary[]
                 subtype: m.subtype,
                 text: truncate(m.text),
                 timestamp: m.timestamp,
+                relatedSessions: m.metadata?.relatedSessions,
             });
         }
     }
