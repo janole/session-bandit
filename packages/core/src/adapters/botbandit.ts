@@ -88,6 +88,7 @@ interface ParseContext
     messages: Message[];
     callIndex: Map<string, ToolCall>;
     wrappedCodexSessionIds: Set<string>;
+    subAgentTitles: Map<string, string>;
 }
 
 const CODEX_PROVIDER_ID = "@janole/ai-sdk-provider-codex-asp";
@@ -146,6 +147,7 @@ function parseBotBandit(filePath: string): Session
         messages: [],
         callIndex: new Map(),
         wrappedCodexSessionIds: new Set(),
+        subAgentTitles: new Map(),
     };
 
     for (const event of parseLines(raw))
@@ -252,24 +254,28 @@ function processEvent(event: BotBanditEvent, ctx: ParseContext): void
 
     if (event.type === "sub_agent_started")
     {
+        rememberSubAgentTitle(event, ctx);
         ctx.messages.push({
             role: "summary",
             subtype: "sub_agent",
             text: `Sub-agent ${event.agent ?? event.subAgentId ?? "unknown"} started${event.title ? `: ${event.title}` : ""}\n\n${event.task ?? ""}`.trim(),
             toolCalls: [],
             timestamp: event.timestamp ?? null,
+            metadata: subAgentMetadata(event, ctx),
         });
         return;
     }
 
     if (event.type === "sub_agent_continued")
     {
+        rememberSubAgentTitle(event, ctx);
         ctx.messages.push({
             role: "summary",
             subtype: "sub_agent",
             text: `Sub-agent ${event.subAgentId ?? "unknown"} continued${event.title ? `: ${event.title}` : ""}\n\n${event.task ?? ""}`.trim(),
             toolCalls: [],
             timestamp: event.timestamp ?? null,
+            metadata: subAgentMetadata(event, ctx),
         });
         return;
     }
@@ -282,8 +288,36 @@ function processEvent(event: BotBanditEvent, ctx: ParseContext): void
             text: `Sub-agent ${event.subAgentId ?? "unknown"} finished (${event.status ?? "unknown"}).\n\n${event.result ?? ""}`.trim(),
             toolCalls: [],
             timestamp: event.timestamp ?? null,
+            metadata: subAgentMetadata(event, ctx),
         });
     }
+}
+
+function rememberSubAgentTitle(event: BotBanditEvent, ctx: ParseContext): void
+{
+    const sessionId = stringValue(event.subAgentId);
+    const title = stringValue(event.title);
+    if (sessionId && title) { ctx.subAgentTitles.set(sessionId, title); }
+}
+
+function subAgentMetadata(event: BotBanditEvent, ctx: ParseContext): { relatedSessions: RelatedSessionReference[] } | undefined
+{
+    const relatedSession = subAgentReference(event, ctx);
+    return relatedSession ? { relatedSessions: [relatedSession] } : undefined;
+}
+
+function subAgentReference(event: BotBanditEvent, ctx: ParseContext): RelatedSessionReference | undefined
+{
+    const sessionId = stringValue(event.subAgentId);
+    if (!sessionId) { return undefined; }
+
+    return {
+        agent: "botbandit",
+        kind: "sub_agent",
+        sessionId,
+        title: stringValue(event.title) ?? ctx.subAgentTitles.get(sessionId),
+        turnId: stringValue(event.turn_id),
+    };
 }
 
 function processProviderMessage(event: BotBanditEvent, ctx: ParseContext): void
