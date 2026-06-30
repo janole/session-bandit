@@ -14,6 +14,7 @@ export interface RelatedSessionReference {
     agent: AgentName;
     kind: string;
     sessionId: string;
+    title?: string;
     turnId?: string;
     path?: string;
 }
