@@ -1,5 +1,7 @@
-import type { SessionDigest } from "./digest.js";
+import type { DigestSummary, SessionDigest } from "./digest.js";
 import type { PublishedSessionBundle } from "./publish.js";
+import { slugify } from "./publish.js";
+import type { RelatedSessionReference } from "./types.js";
 import type { Message, ToolCall } from "./types.js";
 
 /** Render a published session bundle as deterministic GitHub-flavored Markdown. */
@@ -101,13 +103,29 @@ function renderRelatedSessions(lines: string[], bundle: PublishedSessionBundle):
     for (const item of related)
     {
         const parts = [
-            `${item.agent} ${item.kind}: \`${item.sessionId}\``,
+            `${item.agent} ${item.kind}: ${relatedSessionLink(item)}`,
             item.turnId ? `turn \`${item.turnId}\`` : undefined,
             item.path ? `path \`${item.path}\`` : undefined,
         ].filter((part): part is string => Boolean(part));
         lines.push(`- ${parts.join("; ")}`);
     }
     lines.push("");
+}
+
+function relatedSessionLink(item: RelatedSessionReference): string
+{
+    return `[${relatedSessionLabel(item)}](${relatedSessionHref(item)})`;
+}
+
+function relatedSessionLabel(item: RelatedSessionReference): string
+{
+    if (item.title) { return `${item.title} (\`${item.sessionId}\`)`; }
+    return `\`${item.sessionId}\``;
+}
+
+function relatedSessionHref(item: RelatedSessionReference): string
+{
+    return `../${slugify(item.sessionId)}/`;
 }
 
 function renderSummaries(lines: string[], digest: SessionDigest): void
@@ -118,12 +136,21 @@ function renderSummaries(lines: string[], digest: SessionDigest): void
     lines.push("");
     for (const summary of digest.summaries)
     {
-        lines.push(`### ${summaryLabel(summary.subtype)}`);
+        lines.push(`### ${summaryHeading(summary)}`);
         lines.push("");
         if (summary.timestamp) { lines.push(`_Timestamp: ${summary.timestamp}_`); lines.push(""); }
         lines.push(summary.text);
         lines.push("");
     }
+}
+
+function summaryHeading(summary: DigestSummary): string
+{
+    const related = summary.relatedSessions?.find((item) => item.kind === "sub_agent");
+    if (!related) { return summaryLabel(summary.subtype); }
+
+    const label = related.title ? `Sub-Agent Session: ${related.title}` : summaryLabel(summary.subtype);
+    return `[${label}](${relatedSessionHref(related)})`;
 }
 
 function renderTranscript(lines: string[], messages: Message[], model: string | null): void
@@ -197,6 +224,7 @@ function renderToolCall(lines: string[], toolCall: ToolCall): void
     lines.push("<details>");
     lines.push(`<summary>${escapeHtml(toolCall.name)} - ${toolCall.status}</summary>`);
     lines.push("");
+    renderAgentRunLink(lines, toolCall);
     renderCodeBlock(lines, "Input:", "json", formatJson(toolCall.input));
     if (toolCall.output)
     {
@@ -204,6 +232,63 @@ function renderToolCall(lines: string[], toolCall: ToolCall): void
     }
     lines.push("</details>");
     lines.push("");
+}
+
+function renderAgentRunLink(lines: string[], toolCall: ToolCall): void
+{
+    const related = agentRunRelatedSession(toolCall);
+    if (!related) { return; }
+
+    lines.push(`<p>Sub-agent session: <a href="${escapeHtml(relatedSessionHref(related))}">${escapeHtml(related.title ?? related.sessionId)} (<code>${escapeHtml(related.sessionId)}</code>)</a></p>`);
+    lines.push("");
+}
+
+function agentRunRelatedSession(toolCall: ToolCall): RelatedSessionReference | null
+{
+    if (toolCall.name !== "agent_run" || !toolCall.output) { return null; }
+
+    const sessionId = agentRunSessionId(toolCall.output);
+    if (!sessionId) { return null; }
+
+    return {
+        agent: "botbandit",
+        kind: "sub_agent",
+        sessionId,
+        title: toolInputString(toolCall.input, "title"),
+    };
+}
+
+function agentRunSessionId(output: string): string | null
+{
+    const outer = parseJson(output);
+    const candidate = isRecord(outer) && typeof outer.value === "string" ? outer.value : output;
+    const inner = parseJson(candidate);
+    if (isRecord(inner) && typeof inner.subAgentId === "string") { return inner.subAgentId; }
+    return null;
+}
+
+function parseJson(value: string): unknown
+{
+    try
+    {
+        return JSON.parse(value);
+    }
+    catch
+    {
+        return null;
+    }
+}
+
+function toolInputString(input: unknown, key: string): string | undefined
+{
+    if (!isRecord(input)) { return undefined; }
+    const value = input[key];
+    return typeof value === "string" && value ? value : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown>
+{
+    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function renderCodeBlock(lines: string[], label: string, language: string, value: string): void
@@ -260,6 +345,8 @@ function summaryLabel(subtype: string): string
             return "Context Summary";
         case "wrapped_codex":
             return "Original Codex Session";
+        case "sub_agent":
+            return "Sub-Agent Session";
         case "recap":
             return "Session Recap";
         default:
