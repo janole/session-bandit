@@ -165,4 +165,23 @@ describe("botbanditAdapter.parse — summaries", () =>
         expect(memory!.text).toContain("Next steps:");
         expect(memory!.text).toContain("Importance: 0.8");
     });
+
+    it("emits sub-agent events as related session summaries", () =>
+    {
+        const subAgents = session.messages.filter(message => message.subtype === "sub_agent");
+        expect(subAgents).toHaveLength(2);
+        expect(subAgents[0]!.role).toBe("summary");
+        expect(subAgents[0]!.text).toContain("Sub-agent research started");
+        expect(subAgents[0]!.metadata?.relatedSessions).toEqual([
+            {
+                agent: "botbandit",
+                kind: "sub_agent",
+                sessionId: "sub-session-1",
+                title: "Find prior publishing work",
+                turnId: "turn-sub-1",
+            },
+        ]);
+        expect(subAgents[1]!.text).toContain("Sub-agent sub-session-1 finished (ok).");
+        expect(subAgents[1]!.metadata?.relatedSessions?.[0]?.title).toBe("Find prior publishing work");
+    });
 });
