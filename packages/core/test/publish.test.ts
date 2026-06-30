@@ -113,6 +113,28 @@ describe("buildPublishedSessionBundle", () =>
         ]);
         expect(bundle.digest.summaries.some(summary => summary.subtype === "wrapped_codex")).toBe(true);
     });
+
+    it("includes BotBandit sub-agent provenance for a BotBandit fixture", () =>
+    {
+        const file = join(fixtureRoot, "botbandit", "summary-session.jsonl");
+        const session = botbanditAdapter.parse(file);
+
+        const bundle = buildPublishedSessionBundle(session, {
+            title: "BotBandit Sub Agents",
+            generatedAt: "2026-06-28T12:00:00.000Z",
+        });
+
+        expect(bundle.manifest.source.relatedSessions).toEqual([
+            {
+                agent: "botbandit",
+                kind: "sub_agent",
+                sessionId: "sub-session-1",
+                title: "Find prior publishing work",
+                turnId: "turn-sub-1",
+            },
+        ]);
+        expect(bundle.digest.summaries.some(summary => summary.subtype === "sub_agent")).toBe(true);
+    });
 });
 
 function sessionWithMessages(messages: Message[]): Session
