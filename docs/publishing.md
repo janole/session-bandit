@@ -91,6 +91,22 @@ interface MessageMetadata {
 The publishing builder deduplicates these references into
 `manifest.source.relatedSessions`.
 
+Markdown rendering links related sessions to the conventional sibling page
+`../<slugified-session-id>/`. Publishers that export related sessions should
+write child sessions to that path. Message-level deep links are intentionally
+deferred until normalized messages expose stable public anchors.
+
+When a related session includes `title`, renderers use that title as the link
+label and keep the opaque ID as secondary evidence. BotBandit sub-agent summary
+headings also link to the child transcript, so the parent page has a link at the
+place where the sub-agent was spawned, not only in the final related-session
+list.
+
+Future adapter work should analyze multi-agent and sub-agent protocols in
+Claude Code and Codex directly. The normalized `relatedSessions` shape is meant
+to support those agents too, but today only BotBandit has observed fixtures for
+child-session provenance.
+
 For BotBandit sessions backed by an underlying Codex app-server thread, the
 BotBandit adapter emits a `summary` message with `subtype: "wrapped_codex"` and
 metadata like:
@@ -118,6 +134,7 @@ ordinary chat turns:
 | `memory` | Session memory | BotBandit-generated session memory; useful authoring context, still subject to redaction. |
 | `compaction` | Context summary | Provider/agent compaction summary for earlier transcript context. |
 | `wrapped_codex` | Original Codex session | Provenance marker for BotBandit sessions backed by Codex; also feeds `relatedSessions`. |
+| `sub_agent` | Sub-agent session | Parent-visible BotBandit sub-agent lifecycle summary; feeds `relatedSessions` when `subAgentId` is present. |
 | `recap` | Session recap | Claude while-you-were-away recap. |
 | other subtype | Summary | Preserve the subtype label for auditability. |
 
