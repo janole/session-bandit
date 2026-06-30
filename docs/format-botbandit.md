@@ -43,7 +43,7 @@ The MVP adapter reads these durable events:
 | `cancel` | Cancellation marker |
 | `compaction` | Summary message with `subtype: "compaction"` |
 | `memory` | Summary message with `subtype: "memory"` |
-| `sub_agent_*` | Parent-visible sub-agent summary messages |
+| `sub_agent_*` | Parent-visible sub-agent summary messages with related-session metadata when `subAgentId` is present |
 
 Live `stream` events are ignored by default. In BotBandit, a live stream is a
 preview of a turn; the persisted assistant `message` for the same `turn_id`
@@ -105,6 +105,34 @@ structured provenance metadata:
 The raw BotBandit transcript remains intact; this marker only preserves
 provenance for detailed views and handoff extracts.
 
+## Sub-agent sessions
+
+BotBandit records parent-visible sub-agent lifecycle events as `sub_agent_*`
+events. Session Bandit preserves those as `summary` messages with
+`subtype: "sub_agent"`. When the event includes `subAgentId`, the adapter also
+adds a related-session reference:
+
+```ts
+{
+  role: "summary",
+  subtype: "sub_agent",
+  text: "Sub-agent research started: ...",
+  metadata: {
+    relatedSessions: [
+      { agent: "botbandit", kind: "sub_agent", sessionId: "sub-session-id", title: "Research the API", turnId: "turn-id" }
+    ]
+  }
+}
+```
+
+Publishing uses that metadata to list child sessions in the manifest. Recursive
+export/link generation is a publisher concern layered on top of the normalized
+references.
+
+When `sub_agent_started` includes a title, the related-session reference keeps it
+as `title`. Renderers should use that title as the public link label instead of
+showing only the opaque `subAgentId`.
+
 ## Memory and compaction
 
 BotBandit has first-class persisted summaries:
@@ -120,6 +148,7 @@ Session Bandit preserves both as `role: "summary"` messages:
 { role: "summary", subtype: "memory", ... }
 { role: "summary", subtype: "compaction", ... }
 { role: "summary", subtype: "wrapped_codex", ... }
+{ role: "summary", subtype: "sub_agent", ... }
 ```
 
 These summaries are high-signal input for `session-bandit extract --prompt
