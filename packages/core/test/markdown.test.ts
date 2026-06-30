@@ -88,13 +88,61 @@ describe("renderPublishedSessionMarkdown", () =>
         const markdown = renderPublishedSessionMarkdown(bundle);
 
         expect(markdown).toContain("## Related Sessions");
-        expect(markdown).toContain("codex wrapped_codex: `thr_codex_123`");
+        expect(markdown).toContain("codex wrapped_codex: [`thr_codex_123`](../thr-codex-123/)");
         expect(markdown).toContain("## Summaries");
         expect(markdown).toContain("### Original Codex Session");
         expect(markdown).toContain("Original Codex session: thr_codex_123");
         expect(markdown.match(/Original Codex session: thr_codex_123/g)).toHaveLength(1);
         expect(markdown).not.toContain("2. Original Codex Session");
         expect(markdown).toContain("### Assistant");
+    });
+
+    it("renders BotBandit sub-agent provenance as titled links", () =>
+    {
+        const file = join(fixtureRoot, "botbandit", "summary-session.jsonl");
+        const session = botbanditAdapter.parse(file);
+        const bundle = buildPublishedSessionBundle(session, {
+            title: "BotBandit Summaries",
+            generatedAt: "2026-06-28T12:05:00.000Z",
+        });
+
+        const markdown = renderPublishedSessionMarkdown(bundle);
+
+        expect(markdown).toContain("botbandit sub_agent: [Find prior publishing work (`sub-session-1`)](../sub-session-1/)");
+        expect(markdown).toContain("### [Sub-Agent Session: Find prior publishing work](../sub-session-1/)");
+    });
+
+    it("renders agent_run tool calls with inline child session links", () =>
+    {
+        const session = makeSession([
+            {
+                role: "assistant",
+                text: "Spawning a coder.",
+                toolCalls: [
+                    {
+                        name: "agent_run",
+                        input: { agent: "coder", title: "Build the watch app" },
+                        status: "ok",
+                        output: JSON.stringify({
+                            type: "text",
+                            value: JSON.stringify({
+                                status: "awaiting_approval",
+                                subAgentId: "sub-coder-123",
+                            }),
+                        }),
+                    },
+                ],
+                timestamp: "2026-06-28T12:01:00.000Z",
+            },
+        ]);
+        const bundle = buildPublishedSessionBundle(session, {
+            title: "Spawn Agent",
+            generatedAt: "2026-06-28T12:05:00.000Z",
+        });
+
+        const markdown = renderPublishedSessionMarkdown(bundle);
+
+        expect(markdown).toContain("<p>Sub-agent session: <a href=\"../sub-coder-123/\">Build the watch app (<code>sub-coder-123</code>)</a></p>");
     });
 
     it("renders redacted bundles without leaking sensitive originals", () =>
