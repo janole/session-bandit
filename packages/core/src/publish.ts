@@ -96,7 +96,7 @@ export function slugify(value: string): string
 /** Collect unique machine-readable source-session references from messages. */
 export function extractRelatedSessions(session: Session): RelatedSessionReference[]
 {
-    const seen = new Set<string>();
+    const seen = new Map<string, RelatedSessionReference>();
     const out: RelatedSessionReference[] = [];
 
     for (const message of session.messages)
@@ -110,8 +110,13 @@ export function extractRelatedSessions(session: Session): RelatedSessionReferenc
                 related.turnId ?? "",
                 related.path ?? "",
             ].join("\u0000");
-            if (seen.has(key)) { continue; }
-            seen.add(key);
+            const existing = seen.get(key);
+            if (existing)
+            {
+                existing.title ??= related.title;
+                continue;
+            }
+            seen.set(key, related);
             out.push(related);
         }
     }
