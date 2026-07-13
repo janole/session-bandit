@@ -349,6 +349,28 @@ pnpm dev search "query" --pretty
 pnpm dev doctor --pretty
 ```
 
+### Publishing the CLI
+
+`session-bandit` is a **self-contained npm package**: `tsup` bundles the whole
+`@session-bandit/core` engine into the CLI `dist/`, so the published package
+has exactly one runtime dependency (`commander`) and no `workspace:*`
+references. End users need only Node.js 22+ — no pnpm, no monorepo checkout.
+
+The publishable package is `packages/cli` (the repo root and core package are
+not published). The `prepublishOnly` / `prepack` lifecycle hooks rebuild
+`dist/` (core first, then CLI) before any `npm publish` or `npm pack`, so the
+bundle is never stale.
+
+```sh
+pnpm run ok                  # quality gate (build + typecheck + lint:fix + test)
+cd packages/cli
+npm pack --dry-run           # rebuild dist/ + inspect tarball contents
+npm publish                  # live (requires npm login)
+```
+
+The version is sourced from `packages/cli/package.json`. Tag the release
+(`git tag v<version>`) after publishing.
+
 ### Project structure
 
 ```
