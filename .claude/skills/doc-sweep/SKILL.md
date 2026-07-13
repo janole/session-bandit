@@ -1,6 +1,8 @@
 ---
 name: doc-sweep
 description: 'Reconcile Session Bandit''s long-lived docs against recent code changes. Reads each doc''s "Last updated:" cursor, diffs git since then, and applies targeted edits to the PRD, architecture decision log, adapter guides, extract design, README files, and the Session Bandit skill. Invoke with /doc-sweep [window], e.g. /doc-sweep 1w. Use when the user asks to "sync docs", "update the docs", "catch the docs up", or after merging a chunk of work.'
+metadata:
+  internal: true
 ---
 
 # doc-sweep
