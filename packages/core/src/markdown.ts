@@ -155,7 +155,7 @@ function summaryHeading(summary: DigestSummary): string
 
 function renderTranscript(lines: string[], messages: Message[], model: string | null): void
 {
-    // Keep structural changes mirrored in skill/templates/github-pages-default/.design/session-page.html.
+    // Keep structural changes mirrored in skills/session-bandit/templates/github-pages-default/.design/session-page.html.
     lines.push("<section class=\"published-transcript\" markdown=\"1\">");
     lines.push("");
     lines.push("## Session Transcript");

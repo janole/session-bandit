@@ -237,13 +237,13 @@ frontier agent or static-site generator to improve presentation after review.
 ## GitHub Pages Template
 
 The default presentation layer lives in
-`skill/templates/github-pages-default/`. It is a static Jekyll/GitHub Pages
+`skills/session-bandit/templates/github-pages-default/`. It is a static Jekyll/GitHub Pages
 template with custom layouts and CSS for exported session Markdown. The template
 does not change the publishing contract: generated sessions still live at
 `sessions/<slug>/index.md`, with `redaction-report.json` beside them.
 
 For local design iteration, the template includes
-`skill/templates/github-pages-default/.design/session-page.html`. Open it
+`skills/session-bandit/templates/github-pages-default/.design/session-page.html`. Open it
 directly in a browser to test layout and overflow changes without Jekyll or a
 Pages deploy.
 

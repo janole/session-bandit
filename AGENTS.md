@@ -17,7 +17,7 @@ For documentation-only changes, do not run the full gate by default.
   and digest generation.
 - `packages/cli` - The `session-bandit` command-line interface over
   `@session-bandit/core`.
-- `skill` - The installable agent skill that teaches agents how to use the CLI
+- `skills/session-bandit` - The installable agent skill that teaches agents how to use the CLI
   for handoffs, memory notes, and session search.
 - `docs` - Product, design, adapter, and format reference documentation.
 
@@ -61,5 +61,5 @@ For documentation-only changes, do not run the full gate by default.
 - When adapter behavior or transcript format knowledge changes, update the
   relevant format reference in `docs/format-*.md`.
 - When CLI flags or output behavior changes, update `README.md`,
-  `packages/cli/README.md`, and `skill/SKILL.md` as appropriate.
+  `packages/cli/README.md`, and `skills/session-bandit/SKILL.md` as appropriate.
 - Use `.claude/skills/doc-sweep` for periodic documentation drift checks.

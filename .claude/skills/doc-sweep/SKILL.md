@@ -23,7 +23,7 @@ relevant — ignore the rest of the changeset for that doc.
 
 | Doc | Scope globs |
 |---|---|
-| `README.md` | `packages/core/src`, `packages/cli/src`, `packages/cli/README.md`, `skill/SKILL.md`, `package.json` |
+| `README.md` | `packages/core/src`, `packages/cli/src`, `packages/cli/README.md`, `skills/session-bandit/SKILL.md`, `package.json` |
 | `packages/cli/README.md` | `packages/cli/src`, `packages/core/src/digest.ts`, `packages/core/src/diagnose.ts`, `package.json` |
 | `docs/prd.md` | `packages/core/src`, `packages/cli/src`, `package.json`, `pnpm-workspace.yaml` |
 | `docs/decisions.md` | `packages/core/src`, `packages/cli/src`, `eslint.config.mjs`, `package.json` |
@@ -31,7 +31,7 @@ relevant — ignore the rest of the changeset for that doc.
 | `docs/format-claude.md` | `packages/core/src/adapters/claude.ts`, `packages/core/test/adapters/claude.test.ts`, `packages/core/test/fixtures/claude` |
 | `docs/format-codex.md` | `packages/core/src/adapters/codex.ts`, `packages/core/test/adapters/codex.test.ts`, `packages/core/test/fixtures/codex` |
 | `docs/extract.md` | `packages/core/src/digest.ts`, `packages/core/test/digest.test.ts`, `packages/cli/src`, `packages/cli/test/extract.test.ts` |
-| `skill/SKILL.md` | `packages/cli/src`, `packages/cli/README.md`, `README.md` |
+| `skills/session-bandit/SKILL.md` | `packages/cli/src`, `packages/cli/README.md`, `README.md` |
 
 ## Procedure
 
@@ -60,7 +60,7 @@ relevant — ignore the rest of the changeset for that doc.
      when an observed agent format or parser behavior changes.
    - `docs/extract.md` is the digest and importance design. Update it when the
      digest shape, scoring, extraction heuristics, or prompt behavior changes.
-   - `README.md`, `packages/cli/README.md`, and `skill/SKILL.md` are user-facing
+   - `README.md`, `packages/cli/README.md`, and `skills/session-bandit/SKILL.md` are user-facing
      usage docs. Keep them accurate for install, commands, flags, and workflow.
    Make specific line or section edits. Never rewrite a doc wholesale.
    Preserve voice and existing structure.

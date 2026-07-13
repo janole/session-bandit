@@ -340,7 +340,7 @@ tool results).
 
 ### 19. Skill ships in the repo + CLI bundles core for global install
 
-**Decision.** The Codex agent skill lives in the repo at `skill/SKILL.md`,
+**Decision.** The Codex agent skill lives in the repo at `skills/session-bandit/SKILL.md`,
 installable via the Codex skill-installer from GitHub. The CLI bundles
 `@session-bandit/core` into its output (`noExternal` in tsup) so it's
 self-contained and installable via `npm install -g session-bandit` without a

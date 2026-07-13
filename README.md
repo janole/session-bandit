@@ -60,7 +60,7 @@ CLI, so no separate install needed).
 
 ### Agent skill
 
-Session Bandit ships an agent skill in the `skill/` directory. The skill
+Session Bandit ships an agent skill in the `skills/session-bandit/` directory. The skill
 teaches Claude Code, Codex, and other `npx skills`-compatible agents how to use
 Session Bandit to write handoff notes and memory notes from past sessions.
 
@@ -79,10 +79,10 @@ npx skills add janole/session-bandit --skill session-bandit -g -a codex -y
 You can also install directly from the skill path:
 
 ```sh
-npx skills add https://github.com/janole/session-bandit/tree/main/skill -g -a claude-code -y
+npx skills add https://github.com/janole/session-bandit/tree/main/skills/session-bandit -g -a claude-code -y
 ```
 
-Or manually copy the `skill/` directory to the relevant agent skill directory,
+Or manually copy the `skills/session-bandit/` directory to the relevant agent skill directory,
 for example `~/.claude/skills/session-bandit/` for Claude Code or
 `~/.codex/skills/session-bandit/` for Codex.
 
@@ -186,7 +186,7 @@ site. That keeps the core path offline and reviewable while still making the
 artifact easy to publish in a GitHub Pages-style repository.
 
 For new publishing repos, use the default template in
-`skill/templates/github-pages-default/`. It is a self-contained Jekyll/GitHub
+`skills/session-bandit/templates/github-pages-default/`. It is a self-contained Jekyll/GitHub
 Pages site with custom layouts and CSS for generated session Markdown. The
 agent skill can copy this template into an empty repo, then export sessions into
 `sessions/<slug>/index.md` with a sibling `redaction-report.json`.
@@ -386,8 +386,8 @@ docs/
   format-claude.md               Claude Code on-disk format reference
   format-codex.md                Codex on-disk format reference (3 historical formats)
   format-botbandit.md            BotBandit event-log format reference
-skill/
-  SKILL.md                       Codex agent skill (handoff + memory note generation)
+skills/session-bandit/
+  SKILL.md                       Agent skill (handoff + memory note generation)
 ```
 
 ## Extending

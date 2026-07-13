@@ -197,7 +197,7 @@ offline artifact. If HTML is needed, generate it from the reviewed Markdown or
 redacted publishing bundle.
 
 The installable skill ships a default GitHub Pages template at
-`skill/templates/github-pages-default/`. Use that template for new publishing
+`skills/session-bandit/templates/github-pages-default/`. Use that template for new publishing
 repos when you want polished static rendering without adding an HTML exporter to
 the CLI.
 
