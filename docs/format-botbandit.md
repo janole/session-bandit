@@ -39,7 +39,8 @@ The MVP adapter reads these durable events:
 | `context` | Latest project/cwd/git context |
 | `message` | Main transcript (`message` is an AI SDK `ModelMessage`) |
 | `notice` | Non-debug system notices |
-| `turn_end` | Error messages |
+| `turn_end` | Error messages; per-turn `usage` → `Message.stats` / `Session.stats` |
+| `loop_end` | Loop summary; `usage` is an aggregate (sum of the loop's `turn_end` usages) and is **ignored** for stats to avoid double-counting |
 | `cancel` | Cancellation marker |
 | `compaction` | Summary message with `subtype: "compaction"` |
 | `memory` | Summary message with `subtype: "memory"` |
@@ -48,6 +49,41 @@ The MVP adapter reads these durable events:
 Live `stream` events are ignored by default. In BotBandit, a live stream is a
 preview of a turn; the persisted assistant `message` for the same `turn_id`
 supersedes it.
+
+### Token usage (`turn_end`)
+
+Newer BotBandit sessions emit an AI SDK `usage` block on `turn_end` events
+(`loop_end` also carries a `usage` block, but it is the accumulated sum of all
+steps in the loop — built via `addLanguageModelUsage` in botbandit's
+`agent-session.ts` — so the adapter ignores it to avoid double-counting every
+token and inflating `peakContextSize` with a multi-step aggregate):
+
+```json
+{"type":"turn_end","result":"continued","durationMs":66404,
+ "usage":{
+   "inputTokens":92789,
+   "inputTokenDetails":{"cacheReadTokens":5504},
+   "outputTokens":788,
+   "outputTokenDetails":{"reasoningTokens":53},
+   "totalTokens":93577,
+   "cachedInputTokens":5504,
+   "reasoningTokens":53
+ }}
+```
+
+The adapter records this into `Session.stats` (accumulated across turns) and
+attaches the per-turn `MessageStats` to the nearest preceding assistant
+message. `inputTokens` is the prompt size for the turn (→ `contextSize`, and
+tracked for peak/final). BotBandit (AI SDK / OpenAI convention) counts
+`inputTokens` as **including** cached and `outputTokens` as **including**
+reasoning, so the adapter normalizes to fresh input / non-reasoning output to
+match the Claude convention. `cachedInputTokens` mirrors
+`inputTokenDetails.cacheReadTokens` and `reasoningTokens` mirrors
+`outputTokenDetails.reasoningTokens` (the adapter prefers the convenience
+field and falls back to the details field). Providers that do not report
+cache reads (e.g. `ai-sdk-ollama`, which only emits `inputTokenDetails.noCacheTokens`)
+leave `cachedInputTokens === 0`. Older sessions without these
+events have `Session.stats === undefined`.
 
 ## Message projection
 

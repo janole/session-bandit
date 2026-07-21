@@ -41,6 +41,8 @@ export interface Session {
     model: string | null;
     messageCount: number;
     messages: Message[];
+    /** Aggregate token/context-window stats for the session, if the source carries any. */
+    stats?: SessionStats;
 }
 
 export type MessageRole = "user" | "assistant" | "system" | "tool" | "summary";
@@ -66,6 +68,8 @@ export interface Message {
     subtype?: string;
     /** Machine-readable annotations used by downstream consumers such as publishing. */
     metadata?: MessageMetadata;
+    /** Per-turn token usage for this message, when the source records it (Claude `usage`, Codex `last_token_usage`, BotBandit `turn_end.usage`). */
+    stats?: MessageStats;
 }
 
 export interface ToolCall {
@@ -76,4 +80,36 @@ export interface ToolCall {
     status: "ok" | "error" | "unknown";
     /** Truncated/summarized output, or null. */
     output: string | null;
+}
+
+/** Per-turn token usage attached to a normalized message. */
+export interface MessageStats {
+    /** Fresh input tokens for this turn (excludes cache reads/creation). */
+    inputTokens: number;
+    /** Output tokens generated this turn. */
+    outputTokens: number;
+    /** Cached input tokens (read + creation) — the cheap tokens. */
+    cachedInputTokens: number;
+    /** Reasoning/thinking output tokens, if the provider separates them. */
+    reasoningTokens: number;
+    /** Context size at this turn (Codex `total_tokens`; derived prompt size elsewhere). */
+    contextSize: number | null;
+}
+
+/** Aggregate token/context-window stats for a session, when the source carries any. */
+export interface SessionStats {
+    /** Total fresh input tokens across the session. */
+    totalInputTokens: number;
+    /** Total output tokens (excludes reasoning where the provider separates it). */
+    totalOutputTokens: number;
+    /** Total cached input tokens (read + creation). */
+    cachedInputTokens: number;
+    /** Total reasoning/thinking output tokens, if the provider separates them. */
+    reasoningTokens: number;
+    /** Context-window limit for the model, if known (Codex reports it). */
+    contextWindow: number | null;
+    /** Final context size at the end of the session, if known. */
+    finalContextSize: number | null;
+    /** Peak context size observed during the session, if known. */
+    peakContextSize: number | null;
 }

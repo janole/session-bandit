@@ -81,7 +81,7 @@ kind of payload to expect:
 | `session_meta` | `{ id, timestamp, cwd, originator, cli_version, ... }` | capture `id`, `timestamp`, `cwd` |
 | `turn_context` | `{ turn_id, cwd, model, approval_policy, ... }` | capture `model`, `cwd` |
 | `response_item` | a message / reasoning / `*_call` / `*_call_output` (see below) | parse as an item |
-| `event_msg` | `{ type: "task_started" \| "task_complete" \| "token_count" \| ... }` | **skipped** (UI/token events) |
+| `event_msg` | `{ type: "task_started" \| "task_complete" \| "token_count" \| ... }` | `token_count` → capture usage; others **skipped** |
 | `compacted` | `{ message: "", replacement_history: [<full prior messages>] }` | emit as a `summary`/`compaction` marker |
 
 A real modern session opens with `session_meta`, then `turn_context`, then a
@@ -225,9 +225,25 @@ it sees, and `cwd` from `session_meta.payload.cwd` (falling back to
 exactly this reason.
 
 Per-turn token counts are emitted as `event_msg` payloads with
-`type: "token_count"` — currently skipped. A future usage/quota feature could
-read these (and Codex's rate-limit windows in the same payload) without
-changing the session format.
+`type: "token_count"`. The Codex adapter captures these into `Session.stats`
+and the nearest assistant `Message.stats`:
+
+- `info.total_token_usage` — running session totals (cumulative across turns).
+- `info.last_token_usage` — the delta for the most recent turn.
+- `info.model_context_window` — the model's context-window limit (→
+  `SessionStats.contextWindow`).
+- `info.last_token_usage.input_tokens` — the prompt size for the last turn (→
+  `MessageStats.contextSize`, and tracked for peak/final context size).
+
+Codex (OpenAI) token accounting differs from Claude's: `input_tokens`
+**already includes** `cached_input_tokens` (cached is a subset), and
+`output_tokens` **already includes** `reasoning_output_tokens`. The adapter
+normalizes to the Claude convention (`totalInputTokens` = fresh input =
+`input - cached`; `totalOutputTokens` = non-reasoning = `output - reasoning`).
+`total_token_usage.total_tokens` is a **cumulative** session total, not the
+current context size — the current context size is the per-turn prompt size
+(`last_token_usage.input_tokens`). Other `event_msg` types (`task_started`,
+`task_complete`, …) and the `rate_limits` block are still skipped.
 
 ## Empty / interrupted sessions
 

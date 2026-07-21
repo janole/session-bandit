@@ -334,3 +334,69 @@ describe("codexAdapter.parse — edge cases", () =>
         expect(s.messages).toEqual([]);
     });
 });
+
+// ---- token / context stats ------------------------------------------------
+
+describe("codexAdapter.parse — stats (token_count events)", () =>
+{
+    it("captures running session totals from the last token_count event", () =>
+    {
+        const s = codexAdapter.parse(modernFile);
+        expect(s.stats).toBeDefined();
+        // The fixture has two token_count events with real info; the last wins.
+        // Codex input_tokens includes cached and output_tokens includes reasoning,
+        // so totals are normalized to fresh input / non-reasoning output.
+        expect(s.stats!.totalInputTokens).toBe(72864 - 44160);
+        expect(s.stats!.totalOutputTokens).toBe(2536 - 1607);
+        expect(s.stats!.cachedInputTokens).toBe(44160);
+        expect(s.stats!.reasoningTokens).toBe(1607);
+    });
+
+    it("captures the model context window", () =>
+    {
+        const s = codexAdapter.parse(modernFile);
+        expect(s.stats!.contextWindow).toBe(258400);
+    });
+
+    it("tracks peak and final context size from per-turn prompt size", () =>
+    {
+        const s = codexAdapter.parse(modernFile);
+        // The context size is the per-turn prompt size (input_tokens, which
+        // includes cached): turn 1 = 18103, turn 2 = 22088 → peak/final 22088.
+        expect(s.stats!.peakContextSize).toBe(22088);
+        expect(s.stats!.finalContextSize).toBe(22088);
+    });
+
+    it("attaches per-turn last_token_usage to the nearest assistant message", () =>
+    {
+        const s = codexAdapter.parse(modernFile);
+        const assistants = s.messages.filter((m) => m.role === "assistant");
+        const withStats = assistants.filter((m) => m.stats);
+        expect(withStats.length).toBeGreaterThanOrEqual(1);
+        // The second token_count's last_token_usage attaches to the last assistant.
+        const last = assistants[assistants.length - 1]!;
+        expect(last.stats).toBeDefined();
+        // Fresh input = input - cached; non-reasoning output = output - reasoning.
+        expect(last.stats!.inputTokens).toBe(22088 - 17792);
+        expect(last.stats!.outputTokens).toBe(1700 - 1178);
+        expect(last.stats!.cachedInputTokens).toBe(17792);
+        expect(last.stats!.reasoningTokens).toBe(1178);
+        // contextSize is the full prompt size (input includes cached).
+        expect(last.stats!.contextSize).toBe(22088);
+    });
+
+    it("tolerates a token_count with null info", () =>
+    {
+        // The fixture's final token_count event has info:null; it must not throw
+        // and must not overwrite the previously captured totals.
+        const s = codexAdapter.parse(modernFile);
+        expect(s.stats!.totalInputTokens).toBe(72864 - 44160);
+    });
+
+    it("leaves stats undefined when no token_count info is present", () =>
+    {
+        // The legacy .json and flat .jsonl formats predate token_count events.
+        expect(codexAdapter.parse(legacyFile).stats).toBeUndefined();
+        expect(codexAdapter.parse(flatFile).stats).toBeUndefined();
+    });
+});

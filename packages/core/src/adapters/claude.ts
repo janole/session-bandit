@@ -3,7 +3,7 @@ import { basename, dirname,join } from "node:path";
 
 import type { Adapter } from "../adapter.js";
 import { readJsonl } from "../jsonl.js";
-import type { Message, Session, ToolCall } from "../types.js";
+import type { Message, MessageStats, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
  * Claude Code stores sessions under `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`
@@ -45,7 +45,16 @@ interface ClaudeLine {
         role?: string;
         model?: string;
         content?: string | ContentBlock[];
+        usage?: ClaudeUsage;
     };
+}
+
+/** Claude `message.usage` block on assistant lines (per-turn token accounting). */
+interface ClaudeUsage {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
 }
 
 /** Decode an encoded-cwd directory name (`-Users-ole-foo`) back to a path (`/Users/ole/foo`). */
@@ -112,6 +121,9 @@ function parseClaude(filePath: string): Session
     // We match results to the most recent tool_use with that id.
     const toolUseIndex = new Map<string, { msg: Message; idx: number }>();
 
+    // Accumulated per-session token totals from assistant `message.usage` blocks.
+    const totals = { input: 0, output: 0, cached: 0 };
+
     const messages: Message[] = [];
 
     for (const line of lines) 
@@ -136,12 +148,18 @@ function parseClaude(filePath: string): Session
                 .map((b) => b.text as string)
                 .join("\n");
             const toolCalls = toolCallsFromAssistant(line);
+            const stats = messageStatsFromUsage(line.message?.usage);
             const msg: Message = {
                 role: "assistant",
                 text,
                 toolCalls,
                 timestamp: line.timestamp ?? null,
             };
+            if (stats)
+            {
+                msg.stats = stats;
+                accumulateUsage(stats, totals);
+            }
             // register tool_use ids for result matching (position-aligned to toolCalls)
             const useIds = blocksOf(line)
                 .filter((b) => b.type === "tool_use" && b.id)
@@ -238,7 +256,66 @@ function parseClaude(filePath: string): Session
         model,
         messageCount: messages.length,
         messages,
+        stats: claudeSessionStats(totals),
     };
+}
+
+/** Build a assistant {@link MessageStats} from a Claude `usage` block. */
+function messageStatsFromUsage(usage: ClaudeUsage | undefined): MessageStats | undefined
+{
+    if (!usage || typeof usage !== "object") { return undefined; }
+    const input = num(usage.input_tokens);
+    const output = num(usage.output_tokens);
+    const cacheCreate = num(usage.cache_creation_input_tokens);
+    const cacheRead = num(usage.cache_read_input_tokens);
+    // No `usage` block fields means the message carried no token accounting.
+    if (input === 0 && output === 0 && cacheCreate === 0 && cacheRead === 0)
+    {
+        return undefined;
+    }
+    return {
+        inputTokens: input,
+        outputTokens: output,
+        cachedInputTokens: cacheCreate + cacheRead,
+        reasoningTokens: 0,
+        // The prompt size for this turn = fresh input + cached creation + cached reads.
+        contextSize: input + cacheCreate + cacheRead,
+    };
+}
+
+/** Accumulate a per-turn {@link MessageStats} into the running session totals. */
+function accumulateUsage(stats: MessageStats, totals: { input: number; output: number; cached: number }): void
+{
+    totals.input += stats.inputTokens;
+    totals.output += stats.outputTokens;
+    totals.cached += stats.cachedInputTokens;
+}
+
+/** Build the aggregate {@link SessionStats} for a Claude session. */
+function claudeSessionStats(totals: { input: number; output: number; cached: number }): SessionStats | undefined
+{
+    if (totals.input === 0 && totals.output === 0 && totals.cached === 0)
+    {
+        return undefined;
+    }
+    return {
+        totalInputTokens: totals.input,
+        totalOutputTokens: totals.output,
+        cachedInputTokens: totals.cached,
+        reasoningTokens: 0,
+        // Claude's transcript does not carry the model's context-window limit.
+        contextWindow: null,
+        // Claude does not report a running context size; the per-turn contextSize
+        // is on each assistant message, but the session-level final/peak are unknown.
+        finalContextSize: null,
+        peakContextSize: null,
+    };
+}
+
+/** Coerce an unknown value to a non-negative number, defaulting to 0. */
+function num(v: unknown): number
+{
+    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
 export const claudeAdapter: Adapter = {

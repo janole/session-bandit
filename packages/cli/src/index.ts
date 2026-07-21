@@ -11,6 +11,7 @@ import { makeListCommand } from "./commands/list.js";
 import { makeRedactCheckCommand } from "./commands/redact-check.js";
 import { makeSearchCommand } from "./commands/search.js";
 import { makeShowCommand } from "./commands/show.js";
+import { makeStatsCommand } from "./commands/stats.js";
 import { scanAll } from "./scan.js";
 
 const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), "../package.json");
@@ -28,7 +29,9 @@ export {
     type DoctorReport,
     indexSessions,
     type Message,
+    readClaudeStatsCache,
     type Session,
+    type SessionStats,
     type ToolCall,
 } from "@session-bandit/core";
 
@@ -52,6 +55,7 @@ export function createProgram(): Command
     program.addCommand(makeRedactCheckCommand(scanAll));
     program.addCommand(makeExportMdCommand(scanAll));
     program.addCommand(makeDoctorCommand());
+    program.addCommand(makeStatsCommand(scanAll));
 
     return program;
 }

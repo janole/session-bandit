@@ -56,6 +56,7 @@ session-bandit search [options] <query>
 session-bandit extract [options] <sessionId>
 session-bandit redact-check [options] <sessionId>
 session-bandit export-md [options] <sessionId>
+session-bandit stats [options] [sessionId]
 session-bandit doctor [options]
 ```
 
@@ -210,6 +211,27 @@ useful when Claude Code, Codex, or BotBandit changes their transcript format.
 session-bandit doctor --pretty
 session-bandit doctor --agent botbandit --pretty
 ```
+
+### `stats`
+
+Show token usage and context-window stats for a session, or aggregate usage
+across all sessions with `--global`.
+
+```sh
+# Per-session token usage, context window, and per-turn breakdown
+session-bandit stats 342647fa-5bf --pretty
+
+# Aggregate usage across all sessions (reads Claude's stats cache + sums
+# per-session stats from every adapter)
+session-bandit stats --global --pretty
+```
+
+Per-session stats report total input/output/cache/reasoning tokens, the
+model's context-window limit (when known — Codex reports it), and the peak and
+final context size, plus a per-turn breakdown. `--global` reports Claude's
+lifetime per-model totals (from `~/.claude/stats-cache.json`), the longest
+session, and busiest hours, alongside per-session totals summed from the
+transcripts of every adapter. Cost is not available offline from any source.
 
 ## Session Locations
 

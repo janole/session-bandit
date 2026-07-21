@@ -1,5 +1,5 @@
-import type { Message, RedactionReport, Session, ToolCall } from "@session-bandit/core";
-import { type AgentDoctorReport, type BotBanditDoctorDetails, type ClaudeDoctorDetails, type CodexDoctorDetails, computeSubstance, type DoctorReport, type ImportanceTier, type SessionDigest } from "@session-bandit/core";
+import type { Message, MessageStats, RedactionReport, Session, SessionStats, ToolCall } from "@session-bandit/core";
+import { type AgentDoctorReport, type BotBanditDoctorDetails, type ClaudeDoctorDetails, type ClaudeGlobalStats, type CodexDoctorDetails, computeSubstance, type DoctorReport, type ImportanceTier, type SessionDigest } from "@session-bandit/core";
 
 /** A compact session summary for `list` output. */
 export interface SessionSummary
@@ -598,4 +598,210 @@ function truncate(text: string, max: number): string
 {
     if (text.length <= max) { return text; }
     return text.slice(0, max - 1) + "…";
+}
+
+// ---- stats output -----------------------------------------------------------
+
+/** A compact per-session stats object for JSON output. */
+export interface SessionStatsView
+{
+    agent: string;
+    sessionId: string;
+    project: string | null;
+    model: string | null;
+    startedAt: string;
+    endedAt: string | null;
+    messageCount: number;
+    stats: SessionStats | null;
+    perTurn: { turn: number; role: string; stats: MessageStats }[];
+}
+
+/** Build a JSON-friendly stats view from a session (token totals + per-turn usage). */
+export function buildSessionStatsView(session: Session): SessionStatsView
+{
+    const perTurn: { turn: number; role: string; stats: MessageStats }[] = [];
+    let turn = 0;
+    for (const msg of session.messages)
+    {
+        if (msg.stats)
+        {
+            turn += 1;
+            perTurn.push({ turn, role: msg.role, stats: msg.stats });
+        }
+    }
+    return {
+        agent: session.agent,
+        sessionId: session.sessionId,
+        project: session.project,
+        model: session.model,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        messageCount: session.messageCount,
+        stats: session.stats ?? null,
+        perTurn,
+    };
+}
+
+/** Print per-session stats as JSON. */
+export function printSessionStatsJson(session: Session): void
+{
+    console.log(JSON.stringify(buildSessionStatsView(session)));
+}
+
+/** Print per-session stats in a human-readable layout. */
+export function printSessionStatsPretty(session: Session): void
+{
+    console.log(`Session:  ${session.sessionId}`);
+    console.log(`Agent:    ${session.agent}`);
+    if (session.project) { console.log(`Project:  ${session.project}`); }
+    if (session.model) { console.log(`Model:    ${session.model}`); }
+    console.log(`Started:  ${session.startedAt || "(unknown)"}`);
+    console.log(`Messages: ${session.messageCount}`);
+    console.log("");
+
+    const s = session.stats;
+    if (!s)
+    {
+        console.log("No token usage recorded for this session.");
+        return;
+    }
+
+    console.log("Tokens");
+    console.log(`  input          ${fmt(s.totalInputTokens)}    (cached: ${fmt(s.cachedInputTokens)})`);
+    console.log(`  output         ${fmt(s.totalOutputTokens)}    (reasoning: ${fmt(s.reasoningTokens)})`);
+    const totalTokens = s.totalInputTokens + s.cachedInputTokens + s.totalOutputTokens;
+    console.log(`  total          ${fmt(totalTokens)}`);
+    console.log("");
+
+    if (s.contextWindow !== null || s.finalContextSize !== null || s.peakContextSize !== null)
+    {
+        console.log("Context window");
+        if (s.contextWindow !== null) { console.log(`  limit      ${fmt(s.contextWindow)}`); }
+        if (s.peakContextSize !== null)
+        {
+            const pct = s.contextWindow ? pctOf(s.peakContextSize, s.contextWindow) : null;
+            console.log(`  peak       ${fmt(s.peakContextSize)}${pct !== null ? `   (${pct}%)` : ""}`);
+        }
+        if (s.finalContextSize !== null)
+        {
+            const pct = s.contextWindow ? pctOf(s.finalContextSize, s.contextWindow) : null;
+            console.log(`  final      ${fmt(s.finalContextSize)}${pct !== null ? `   (${pct}%)` : ""}`);
+        }
+        console.log("");
+    }
+
+    const view = buildSessionStatsView(session);
+    if (view.perTurn.length > 0)
+    {
+        console.log("Per turn");
+        for (const t of view.perTurn)
+        {
+            const ctx = t.stats.contextSize !== null ? fmt(t.stats.contextSize) : "-";
+            const pct = t.stats.contextSize !== null && s.contextWindow
+                ? `   (${pctOf(t.stats.contextSize, s.contextWindow)}%)`
+                : "";
+            console.log(`  #${String(t.turn).padStart(2)}   in ${fmt(t.stats.inputTokens)}  out ${fmt(t.stats.outputTokens)}   ctx ${ctx}${pct}`);
+        }
+    }
+}
+
+/** Format a token count with thousands separators. */
+function fmt(n: number): string
+{
+    return n.toLocaleString("en-US");
+}
+
+/** Compute an integer percentage of `part` of `whole`, or null if whole is 0. */
+function pctOf(part: number, whole: number): number | null
+{
+    if (whole <= 0) { return null; }
+    return Math.round((part / whole) * 100);
+}
+
+/** Print Claude global stats as JSON. */
+export function printGlobalStatsJson(global: ClaudeGlobalStats, sessionTotals: GlobalSessionTotals): void
+{
+    console.log(JSON.stringify({ global, sessionTotals }));
+}
+
+/** Aggregate token totals summed across per-session stats (non-Claude agents). */
+export interface GlobalSessionTotals
+{
+    sessions: number;
+    withStats: number;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    cachedInputTokens: number;
+    reasoningTokens: number;
+}
+
+/** Sum per-session stats across a list of sessions (for the global view). */
+export function sumSessionTotals(sessions: Session[]): GlobalSessionTotals
+{
+    const totals: GlobalSessionTotals = {
+        sessions: sessions.length,
+        withStats: 0,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        cachedInputTokens: 0,
+        reasoningTokens: 0,
+    };
+    for (const s of sessions)
+    {
+        if (!s.stats) { continue; }
+        totals.withStats += 1;
+        totals.totalInputTokens += s.stats.totalInputTokens;
+        totals.totalOutputTokens += s.stats.totalOutputTokens;
+        totals.cachedInputTokens += s.stats.cachedInputTokens;
+        totals.reasoningTokens += s.stats.reasoningTokens;
+    }
+    return totals;
+}
+
+/** Print Claude global stats in a human-readable layout. */
+export function printGlobalStatsPretty(global: ClaudeGlobalStats, sessionTotals: GlobalSessionTotals): void
+{
+    console.log(`All-time (since ${global.firstSessionDate || "(unknown)"})`);
+    console.log(`  sessions      ${fmt(global.totalSessions)}`);
+    console.log(`  messages      ${fmt(global.totalMessages)}`);
+    if (global.longestSession.sessionId)
+    {
+        const mins = Math.round(global.longestSession.duration / 60_000);
+        console.log(`  longest       ${fmt(global.longestSession.messageCount)} msgs (${mins} min)  ${global.longestSession.sessionId}`);
+    }
+    console.log("");
+
+    const models = Object.entries(global.modelUsage).sort(
+        (a, b) => (b[1].outputTokens + b[1].cacheReadInputTokens) - (a[1].outputTokens + a[1].cacheReadInputTokens),
+    );
+    if (models.length > 0)
+    {
+        console.log("Tokens by model (Claude aggregate)");
+        for (const [model, u] of models)
+        {
+            console.log(`  ${model}`);
+            console.log(`    in ${fmt(u.inputTokens)}   out ${fmt(u.outputTokens)}   cache-read ${fmt(u.cacheReadInputTokens)}   cache-create ${fmt(u.cacheCreationInputTokens)}`);
+        }
+        console.log("");
+    }
+
+    if (sessionTotals.withStats > 0)
+    {
+        console.log(`Per-session totals (summed from transcripts, ${sessionTotals.withStats} sessions with stats)`);
+        console.log(`  input          ${fmt(sessionTotals.totalInputTokens)}    (cached: ${fmt(sessionTotals.cachedInputTokens)})`);
+        console.log(`  output         ${fmt(sessionTotals.totalOutputTokens)}    (reasoning: ${fmt(sessionTotals.reasoningTokens)})`);
+        console.log("");
+    }
+
+    const hours = Object.entries(global.hourCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+    if (hours.length > 0)
+    {
+        console.log("Busiest hours (messages)");
+        for (const [hour, count] of hours)
+        {
+            console.log(`  ${hour.padStart(2, "0")}:00  ${fmt(count)}`);
+        }
+    }
 }
