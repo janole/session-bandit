@@ -198,12 +198,19 @@ describe("claudeAdapter.parse — stats (message.usage)", () =>
         expect(session.stats!.cachedInputTokens).toBe((8375 + 7732) + (9000 + 20000));
     });
 
-    it("does not report context window or running context size for Claude", () =>
+    it("does not report a context-window limit for Claude", () =>
     {
-        // Claude's transcript carries per-turn prompt sizes but not the model's
-        // context-window limit or a running context size.
+        // Claude's transcript carries per-turn prompt sizes but not the model's limit,
+        // so context sizes are reported in absolute tokens with no percentage.
         expect(session.stats!.contextWindow).toBeNull();
-        expect(session.stats!.finalContextSize).toBeNull();
-        expect(session.stats!.peakContextSize).toBeNull();
+    });
+
+    it("derives peak and final context size from per-turn prompt sizes", () =>
+    {
+        // Each turn's prompt size is input + cache_creation + cache_read.
+        const turn1 = 2 + 8375 + 7732;
+        const turn2 = 12 + 9000 + 20000;
+        expect(session.stats!.finalContextSize).toBe(turn2);
+        expect(session.stats!.peakContextSize).toBe(Math.max(turn1, turn2));
     });
 });

@@ -122,7 +122,7 @@ function parseClaude(filePath: string): Session
     const toolUseIndex = new Map<string, { msg: Message; idx: number }>();
 
     // Accumulated per-session token totals from assistant `message.usage` blocks.
-    const totals = { input: 0, output: 0, cached: 0 };
+    const totals: ClaudeTotals = { input: 0, output: 0, cached: 0, peakContext: null, lastContext: null };
 
     const messages: Message[] = [];
 
@@ -283,16 +283,39 @@ function messageStatsFromUsage(usage: ClaudeUsage | undefined): MessageStats | u
     };
 }
 
+/** Running per-session token totals and context-size tracking for a Claude session. */
+interface ClaudeTotals {
+    input: number;
+    output: number;
+    cached: number;
+    /** Largest per-turn prompt size seen; exceeds the final size when the session was compacted. */
+    peakContext: number | null;
+    /** Prompt size of the most recent turn. */
+    lastContext: number | null;
+}
+
 /** Accumulate a per-turn {@link MessageStats} into the running session totals. */
-function accumulateUsage(stats: MessageStats, totals: { input: number; output: number; cached: number }): void
+function accumulateUsage(stats: MessageStats, totals: ClaudeTotals): void
 {
     totals.input += stats.inputTokens;
     totals.output += stats.outputTokens;
     totals.cached += stats.cachedInputTokens;
+
+    // Each turn's prompt size is already computed as contextSize; the session-level
+    // peak and final sizes are just the max and the last of those.
+    const ctx = stats.contextSize;
+    if (ctx !== null && ctx > 0)
+    {
+        totals.lastContext = ctx;
+        if (totals.peakContext === null || ctx > totals.peakContext)
+        {
+            totals.peakContext = ctx;
+        }
+    }
 }
 
 /** Build the aggregate {@link SessionStats} for a Claude session. */
-function claudeSessionStats(totals: { input: number; output: number; cached: number }): SessionStats | undefined
+function claudeSessionStats(totals: ClaudeTotals): SessionStats | undefined
 {
     if (totals.input === 0 && totals.output === 0 && totals.cached === 0)
     {
@@ -303,12 +326,11 @@ function claudeSessionStats(totals: { input: number; output: number; cached: num
         totalOutputTokens: totals.output,
         cachedInputTokens: totals.cached,
         reasoningTokens: 0,
-        // Claude's transcript does not carry the model's context-window limit.
+        // Claude's transcript does not carry the model's context-window limit, so
+        // sizes are reported in absolute tokens with no percentage.
         contextWindow: null,
-        // Claude does not report a running context size; the per-turn contextSize
-        // is on each assistant message, but the session-level final/peak are unknown.
-        finalContextSize: null,
-        peakContextSize: null,
+        finalContextSize: totals.lastContext,
+        peakContextSize: totals.peakContext,
     };
 }
 
