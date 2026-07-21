@@ -70,6 +70,36 @@ function makeEmptySession(): Session
 
 const fakeScan: ScanFn = () => [makeStatsSession(), makeEmptySession()];
 
+/** A botbandit session that ran `codex-wrapped-0006` underneath it. */
+function makeWrappingBotBanditSession(): Session
+{
+    const base = makeStatsSession();
+    return {
+        ...base,
+        agent: "botbandit",
+        sessionId: "bb-wrapper-0007",
+        filePath: "/fake/bb-wrapper-0007.jsonl",
+        messages: [{
+            role: "summary",
+            subtype: "wrapped_codex",
+            text: "ran codex thread codex-wrapped-0006",
+            toolCalls: [],
+            timestamp: "2026-06-20T09:00:00.000Z",
+            metadata: {
+                relatedSessions: [{ agent: "codex", kind: "wrapped_codex", sessionId: "codex-wrapped-0006" }],
+            },
+        }],
+    };
+}
+
+/** The codex transcript sitting underneath {@link makeWrappingBotBanditSession}. */
+function makeWrappedCodexSession(): Session
+{
+    return { ...makeStatsSession(), sessionId: "codex-wrapped-0006", filePath: "/fake/codex-wrapped-0006.jsonl" };
+}
+
+const wrappingScan: ScanFn = () => [makeStatsSession(), makeWrappedCodexSession(), makeWrappingBotBanditSession()];
+
 const fakeGlobal: ClaudeGlobalStats = {
     version: 4,
     lastComputedDate: "2026-07-20",
@@ -101,6 +131,7 @@ const fakeGlobal: ClaudeGlobalStats = {
 function runStats(
     args: string[],
     global: ClaudeGlobalStats | null = fakeGlobal,
+    scan: ScanFn = fakeScan,
 ): { stdout: string; stderr: string; exitCode: number }
 {
     const stdoutArr: string[] = [];
@@ -113,7 +144,7 @@ function runStats(
     process.exitCode = 0;
     try
     {
-        const cmd: Command = makeStatsCommand(fakeScan, () => global);
+        const cmd: Command = makeStatsCommand(scan, () => global);
         cmd.exitOverride();
         cmd.parse(["node", "test", ...args]);
     }
@@ -207,41 +238,109 @@ describe("stats command — per-session", () =>
 
 describe("stats command --global", () =>
 {
-    it("prints JSON with Claude global + summed session totals", () =>
+    it("prints transcript totals only, with no Claude cache, by default", () =>
     {
         const { stdout, exitCode } = runStats(["--global"]);
         expect(exitCode).toBe(0);
         const view = JSON.parse(stdout);
-        expect(view.global.totalSessions).toBe(434);
-        expect(view.global.modelUsage["claude-opus-4-8"].outputTokens).toBe(45713062);
+        // Claude's cache covers Claude alone, so an all-agent view must not carry it.
+        expect(view.global).toBeNull();
         // The codex fixture has stats; the empty claude one does not.
         expect(view.sessionTotals.withStats).toBe(1);
         expect(view.sessionTotals.totalInputTokens).toBe(72864);
     });
 
-    it("--pretty prints all-time totals, per-model tokens, and busiest hours", () =>
+    it("breaks the transcript totals down per agent", () =>
+    {
+        const { stdout } = runStats(["--global"]);
+        const rows = JSON.parse(stdout).sessionTotals.byAgent as { agent: string; totals: { sessions: number; withStats: number } }[];
+        expect(rows.map(r => r.agent).sort()).toEqual(["claude", "codex"]);
+        expect(rows.find(r => r.agent === "codex")!.totals.withStats).toBe(1);
+        expect(rows.find(r => r.agent === "claude")!.totals.withStats).toBe(0);
+    });
+
+    it("--pretty prints a per-agent breakdown without Claude-only sections", () =>
     {
         const { stdout, exitCode } = runStats(["--global", "--pretty"]);
         expect(exitCode).toBe(0);
-        expect(stdout).toContain("All-time");
+        expect(stdout).toContain("Per-session totals");
+        expect(stdout).toContain("codex");
+        expect(stdout).not.toContain("All-time");
+        expect(stdout).not.toContain("Busiest hours");
+    });
+
+    it("layers in the Claude cache only when scoped to claude", () =>
+    {
+        const { stdout, exitCode } = runStats(["--global", "--pretty", "--agent", "claude"]);
+        expect(exitCode).toBe(0);
+        expect(stdout).toContain("All-time (Claude Code cache");
         expect(stdout).toContain("434");
         expect(stdout).toContain("Tokens by model");
         expect(stdout).toContain("claude-opus-4-8");
-        expect(stdout).toContain("Per-session totals");
-        expect(stdout).toContain("Busiest hours");
+        expect(stdout).toContain("Busiest hours (Claude only");
         expect(stdout).toContain("22:00");
     });
 
-    it("falls back to summed per-session totals when the global cache is missing", () =>
+    it("does not print Claude figures when filtering to another agent", () =>
     {
-        const { stdout, exitCode } = runStats(["--global", "--pretty"], null);
+        // Regression: --agent codex used to print Claude's all-time block and
+        // per-model tokens, because the filter reached only the transcript totals.
+        const { stdout, exitCode } = runStats(["--global", "--pretty", "--agent", "codex"]);
         expect(exitCode).toBe(0);
+        expect(stdout).not.toContain("All-time");
+        expect(stdout).not.toContain("claude-opus-4-8");
+        expect(stdout).not.toContain("Busiest hours");
         expect(stdout).toContain("Per-session totals");
-        expect(stdout).toContain("72,864");
-        // A missing cache must say so, not report zeroed all-time figures that read
-        // as "you have no sessions" rather than "there is nothing to read".
+    });
+
+    it("holds codex transcripts wrapped by botbandit out of the total", () =>
+    {
+        const { stdout, exitCode } = runStats(["--global"], null, wrappingScan);
+        expect(exitCode).toBe(0);
+        const totals = JSON.parse(stdout).sessionTotals;
+        // Three sessions scanned, but the wrapped codex one is the same work as the
+        // botbandit session above it, so only two are counted.
+        expect(totals.withStats).toBe(2);
+        expect(totals.wrappedCodex.withStats).toBe(1);
+        expect(totals.wrappedCodex.totalInputTokens).toBe(72864);
+        // ...and it must not appear as a codex row either.
+        const codex = (totals.byAgent as { agent: string; totals: { withStats: number } }[]).find(r => r.agent === "codex");
+        expect(codex!.totals.withStats).toBe(1);
+    });
+
+    it("--pretty nests the wrapped codex row under botbandit", () =>
+    {
+        const { stdout } = runStats(["--global", "--pretty"], null, wrappingScan);
+        expect(stdout).toContain("└ via codex");
+        expect(stdout).toContain("not added to the total");
+        const lines = stdout.split("\n");
+        const bb = lines.findIndex(l => l.includes("botbandit"));
+        expect(lines[bb + 1]).toContain("└ via codex");
+    });
+
+    it("names the parent when the botbandit row is filtered away", () =>
+    {
+        const { stdout } = runStats(["--global", "--pretty", "--agent", "codex"], null, wrappingScan);
+        expect(stdout).toContain("└ wrapped by botbandit");
+        expect(stdout).not.toContain("└ via codex");
+    });
+
+    it("says so when scoped to claude but the cache is missing", () =>
+    {
+        const claudeWithStats: ScanFn = () => [{ ...makeStatsSession(), agent: "claude", sessionId: "claude-aaaa-0001" }];
+        const { stdout, exitCode } = runStats(["--global", "--pretty", "--agent", "claude"], null, claudeWithStats);
+        expect(exitCode).toBe(0);
         expect(stdout).toContain("Claude stats cache not found");
         expect(stdout).not.toContain("All-time");
+        expect(stdout).toContain("Per-session totals");
+    });
+
+    it("errors when scoped to claude with neither a cache nor claude usage", () =>
+    {
+        // The only claude fixture carries no usage, so there is genuinely nothing to show.
+        const { stderr, exitCode } = runStats(["--global", "--agent", "claude"], null);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("No stats available");
     });
 
     it("reports a missing cache as null in JSON, not as zeroes", () =>

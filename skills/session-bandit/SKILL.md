@@ -124,15 +124,19 @@ session-bandit stats 342647fa-5bf
 # Human-readable layout for reporting to the user
 session-bandit stats 342647fa-5bf --pretty
 
-# Aggregate usage across all sessions (Claude stats cache + summed per-session
-# totals from every adapter)
+# Aggregate usage across every adapter's sessions, broken down per agent
 session-bandit stats --global --pretty
+
+# Same, plus Claude's own lifetime cache (Claude-only)
+session-bandit stats --global --pretty --agent claude
 ```
 
 `stats` reports total input/output/cache/reasoning tokens, the model's
 context-window limit (when known — Codex reports it), and peak/final context
-size, plus a per-turn breakdown. `--global` reports Claude's lifetime
-per-model totals, the longest session, and busiest hours.
+size, plus a per-turn breakdown. `--global` sums every adapter's transcripts
+per agent; `--agent claude` adds Claude's lifetime cache (per-model totals,
+longest session, busiest hours), which counts rotated-away sessions and so
+exceeds the on-disk numbers.
 
 ### Check redaction before publishing
 

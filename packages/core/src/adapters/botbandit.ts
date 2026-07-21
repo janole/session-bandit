@@ -75,6 +75,7 @@ interface ProviderMessage
     role?: string;
     content?: string | ProviderPart[];
     providerMetadata?: Record<string, unknown>;
+    providerOptions?: Record<string, unknown>;
 }
 
 interface ProviderPart
@@ -90,6 +91,7 @@ interface ProviderPart
     approved?: boolean;
     reason?: string;
     providerMetadata?: Record<string, unknown>;
+    providerOptions?: Record<string, unknown>;
 }
 
 interface ParseContext
@@ -420,12 +422,17 @@ function processProviderMessage(event: BotBanditEvent, ctx: ParseContext): void
 
 function collectWrappedCodexSessions(message: ProviderMessage, timestamp: string | null, ctx: ParseContext): void
 {
+    // The codex provider has carried its thread pointer under both keys: older sessions
+    // wrote `providerMetadata`, current ones write `providerOptions`. Read both, or the
+    // link to the underlying codex transcript silently disappears on format drift.
     recordCodexProviderMetadata(message.providerMetadata, timestamp, ctx);
+    recordCodexProviderMetadata(message.providerOptions, timestamp, ctx);
 
     if (!Array.isArray(message.content)) { return; }
     for (const part of message.content)
     {
         recordCodexProviderMetadata(part.providerMetadata, timestamp, ctx);
+        recordCodexProviderMetadata(part.providerOptions, timestamp, ctx);
     }
 }
 

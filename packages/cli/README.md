@@ -228,10 +228,13 @@ session-bandit stats --global --pretty
 
 Per-session stats report total input/output/cache/reasoning tokens, the
 model's context-window limit (when known — Codex reports it), and the peak and
-final context size, plus a per-turn breakdown. `--global` reports Claude's
-lifetime per-model totals (from `~/.claude/stats-cache.json`), the longest
-session, and busiest hours, alongside per-session totals summed from the
-transcripts of every adapter. Cost is not available offline from any source.
+final context size, plus a per-turn breakdown. `--global` sums usage across
+every adapter's transcripts, broken down per agent. Adding `--agent claude`
+layers in Claude's own lifetime cache (`~/.claude/stats-cache.json`) — per-model
+totals, the longest session, and busiest hours. That cache is Claude-only and
+counts sessions whose transcripts have since been rotated away, so it is scoped
+to a Claude view rather than mixed into the all-agent one. Cost is not available
+offline from any source.
 
 ## Session Locations
 

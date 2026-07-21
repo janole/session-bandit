@@ -1,0 +1,5 @@
+{"type":"session_init","event_id":"01J00000000000000000000041","timestamp":"2026-07-21T08:00:00.000Z","id":"codex-wrapper-provideroptions-session","schemaVersion":2}
+{"type":"config","event_id":"01J00000000000000000000042","config":{"profile":"codex","provider":"codex","model":"gpt-5.5"}}
+{"type":"message","event_id":"01J00000000000000000000043","timestamp":"2026-07-21T08:00:01.000Z","message":{"role":"user","content":"Check the current branch."}}
+{"type":"message","event_id":"01J00000000000000000000044","timestamp":"2026-07-21T08:00:02.000Z","turn_id":"turn-1","message":{"role":"assistant","content":[{"type":"reasoning","text":"","providerOptions":{"@janole/ai-sdk-provider-codex-asp":{"threadId":"019cf7d6-9c29-7331-b631-27b9313acfd6","turnId":"019cf7d6-9c3e-7a62-8388-93373b137829"}}},{"type":"text","text":"The branch is main."}]}}
+{"type":"turn_end","event_id":"01J00000000000000000000045","timestamp":"2026-07-21T08:00:03.000Z","turn_id":"turn-1","usage":{"inputTokens":12000,"outputTokens":400,"cachedInputTokens":9000,"reasoningTokens":150}}
