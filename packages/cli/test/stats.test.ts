@@ -166,6 +166,16 @@ describe("stats command — per-session", () =>
         expect(stdout).toContain("ctx");
     });
 
+    it("--pretty counts reasoning tokens in the total", () =>
+    {
+        const { stdout, exitCode } = runStats(["codex-dddd-0004", "--pretty"]);
+        expect(exitCode).toBe(0);
+        // 72,864 input + 44,160 cached + 2,536 output + 1,607 reasoning.
+        // Adapters split reasoning out of totalOutputTokens, so omitting it here
+        // under-reports every reasoning-model session.
+        expect(stdout).toContain("total          121,167");
+    });
+
     it("matches a session by id prefix", () =>
     {
         const { stdout, exitCode } = runStats(["codex-dddd"]);

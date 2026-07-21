@@ -669,7 +669,10 @@ export function printSessionStatsPretty(session: Session): void
     console.log("Tokens");
     console.log(`  input          ${fmt(s.totalInputTokens)}    (cached: ${fmt(s.cachedInputTokens)})`);
     console.log(`  output         ${fmt(s.totalOutputTokens)}    (reasoning: ${fmt(s.reasoningTokens)})`);
-    const totalTokens = s.totalInputTokens + s.cachedInputTokens + s.totalOutputTokens;
+    // Reasoning is split out of totalOutputTokens by every adapter, so it has to be
+    // added back here — otherwise the total silently omits it. For Codex this makes
+    // the sum equal its own `total_tokens` (input_tokens + output_tokens).
+    const totalTokens = s.totalInputTokens + s.cachedInputTokens + s.totalOutputTokens + s.reasoningTokens;
     console.log(`  total          ${fmt(totalTokens)}`);
     console.log("");
 
