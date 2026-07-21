@@ -23,7 +23,7 @@ ever done with every agent.
 - **Parsing health check** — `doctor` command validates that Session Bandit's
   parsing assumptions match your real session files (format drift, injection
   markers, unrecognized types, silent skips).
-- **Token usage & context-window stats** — `stats` surfaces per-session and aggregate token usage (input/output/cache/reasoning), the model's context-window limit, and peak/final context size. Codex `token_count` events, Claude `message.usage`, and BotBandit `turn_end`/`loop_end` usage are all captured. `stats --global` reads Claude's `~/.claude/stats-cache.json` for lifetime per-model totals.
+- **Token usage & context-window stats** — `stats` surfaces per-session and aggregate token usage (input/output/cache/reasoning), the model's context-window limit, and peak/final context size. Codex `token_count` events, Claude `message.usage`, and BotBandit `turn_end`/`loop_end` usage are all captured. `stats --global` aggregates every agent from your transcripts, broken down per agent; adding `--agent claude` layers in Claude's own `~/.claude/stats-cache.json` lifetime totals.
 - **Redaction preview for publishing** — `redact-check` reports what would be
   redacted from a session before a Markdown export writes public artifacts.
 - **Markdown publishing artifact** — `export-md` writes a redacted, reviewable
@@ -182,7 +182,7 @@ session-bandit stats [sessionId] [--agent <name>] [--global] [--pretty]
 | `--report-out <path>` | `export-md`: optional redaction report JSON output path |
 | `--yes` | `export-md`: required with `--redact none` |
 | `--pretty` | Print human-readable output instead of JSON lines |
-| `--global` | `stats`: aggregate usage across all sessions (Claude stats cache + summed per-session totals) |
+| `--global` | `stats`: aggregate usage across all sessions, broken down per agent (add `--agent claude` for Claude's lifetime cache) |
 
 **Output defaults to JSON lines** (one object per line) for machine
 consumption and piping. Use `--pretty` for terminal browsing.
@@ -306,24 +306,37 @@ Per turn
   ...
 ```
 
-`stats --global --pretty`:
+`stats --global --pretty` — every agent, summed from the transcripts on disk:
 
 ```
-All-time (since 2026-01-22T10:42:06.325Z)
-  sessions      434
+Per-session totals (from transcripts on disk)
+  claude       100 sess   in   2,457,603   out 28,841,365
+  codex        991 sess   in 213,025,556   out  7,128,950
+  botbandit    667 sess   in 656,565,837   out  6,899,516
+  total      1,758 sess   in 872,048,996   out 42,869,831
+  cached 6,642,680,265   reasoning 4,549,618
+```
+
+`stats --global --pretty --agent claude` additionally layers in Claude's own
+lifetime cache, which is Claude-only and counts sessions whose transcripts have
+since been rotated away — so its totals legitimately exceed the on-disk ones:
+
+```
+All-time (Claude Code cache, since 2026-01-22T10:42:06.325Z)
+  sessions      434   (128 transcripts still on disk)
   messages      136,552
-  longest       5,378 msgs (12219 min)  4e4f7ab3
+  longest       5,378 msgs (8d 11h)  4e4f7ab3
 
 Tokens by model (Claude aggregate)
   claude-opus-4-8
     in 4,616,653   out 45,713,062   cache-read 5,329,110,624   cache-create 170,472,123
   ...
 
-Per-session totals (summed from transcripts, 1759 sessions with stats)
-  input          4,749,658,300    (cached: 6,909,776,116)
-  output         55,164,921    (reasoning: 5,361,855)
+Per-session totals (from transcripts on disk)
+  claude       100 sess   in 2,457,603   out 28,841,365
+  cached 2,041,544   reasoning 0
 
-Busiest hours (messages)
+Busiest hours (Claude only, messages)
   22:00  36
   23:00  33
   ...
@@ -494,7 +507,7 @@ the structural choices is in [`docs/decisions.md`](docs/decisions.md).
 - **BotBandit adapter** — parses `~/.botbandit/sessions/*.jsonl` event logs,
   including memory and compaction events as summary messages.
 
-- **Token usage & context-window stats** — `stats` captures per-session and aggregate token usage, the context-window limit, and peak/final context size across Claude, Codex, and BotBandit; `stats --global` reads Claude's `~/.claude/stats-cache.json` for lifetime per-model totals.
+- **Token usage & context-window stats** — `stats` captures per-session and aggregate token usage, the context-window limit, and peak/final context size across Claude, Codex, and BotBandit; `stats --global` aggregates every agent from your transcripts, broken down per agent; adding `--agent claude` layers in Claude's own `~/.claude/stats-cache.json` lifetime totals.
 
 **Next:**
 - **Gemini adapter** — the adapter guide uses Gemini as its worked example;

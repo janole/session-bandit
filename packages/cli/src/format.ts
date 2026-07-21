@@ -708,6 +708,16 @@ export function printSessionStatsPretty(session: Session): void
     }
 }
 
+/** Format a millisecond duration as `Nd Nh` / `Nh Nm` / `Nm`, whichever fits. */
+function duration(ms: number): string
+{
+    const mins = Math.round(ms / 60_000);
+    if (mins < 60) { return `${mins} min`; }
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) { return `${hours}h ${mins % 60}m`; }
+    return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+}
+
 /** Format a token count with thousands separators. */
 function fmt(n: number): string
 {
@@ -721,14 +731,30 @@ function pctOf(part: number, whole: number): number | null
     return Math.round((part / whole) * 100);
 }
 
-/** Print Claude global stats as JSON. `global` is null when the stats cache is absent. */
-export function printGlobalStatsJson(global: ClaudeGlobalStats | null, sessionTotals: GlobalSessionTotals): void
+/**
+ * Whether the Claude lifetime cache belongs in this view, and if so what was found.
+ *
+ * The cache covers Claude only, so it is `omitted` unless the view is scoped to Claude
+ * — mixing it into an all-agent view puts two different scopes under one heading.
+ * `missing` is distinct from `omitted`: it means we looked and found nothing, which is
+ * worth telling a user who explicitly asked for Claude.
+ */
+export type ClaudeSection =
+    | { kind: "omitted" }
+    | { kind: "missing" }
+    | { kind: "present"; stats: ClaudeGlobalStats };
+
+/** Print global stats as JSON. `global` is null unless the Claude cache is in scope and present. */
+export function printGlobalStatsJson(claude: ClaudeSection, sessionTotals: GlobalSessionTotals): void
 {
-    console.log(JSON.stringify({ global, sessionTotals }));
+    console.log(JSON.stringify({
+        global: claude.kind === "present" ? claude.stats : null,
+        sessionTotals,
+    }));
 }
 
-/** Aggregate token totals summed across per-session stats (non-Claude agents). */
-export interface GlobalSessionTotals
+/** Token totals for one agent, or for every scanned agent combined. */
+export interface AgentTotals
 {
     sessions: number;
     withStats: number;
@@ -738,61 +764,126 @@ export interface GlobalSessionTotals
     reasoningTokens: number;
 }
 
-/** Sum per-session stats across a list of sessions (for the global view). */
-export function sumSessionTotals(sessions: Session[]): GlobalSessionTotals
+/** Combined token totals plus the per-agent rows they were summed from. */
+export interface GlobalSessionTotals extends AgentTotals
 {
-    const totals: GlobalSessionTotals = {
-        sessions: sessions.length,
+    /** One row per agent that contributed at least one session, in scan order. */
+    byAgent: { agent: string; totals: AgentTotals }[];
+}
+
+/** An all-zero {@link AgentTotals}. */
+function emptyTotals(): AgentTotals
+{
+    return {
+        sessions: 0,
         withStats: 0,
         totalInputTokens: 0,
         totalOutputTokens: 0,
         cachedInputTokens: 0,
         reasoningTokens: 0,
     };
-    for (const s of sessions)
-    {
-        if (!s.stats) { continue; }
-        totals.withStats += 1;
-        totals.totalInputTokens += s.stats.totalInputTokens;
-        totals.totalOutputTokens += s.stats.totalOutputTokens;
-        totals.cachedInputTokens += s.stats.cachedInputTokens;
-        totals.reasoningTokens += s.stats.reasoningTokens;
-    }
-    return totals;
 }
 
-/** Print the per-session totals block, summed from transcripts. No-op when no session carries stats. */
+/** Add one session's stats into a totals row. */
+function addSession(totals: AgentTotals, session: Session): void
+{
+    totals.sessions += 1;
+    if (!session.stats) { return; }
+    totals.withStats += 1;
+    totals.totalInputTokens += session.stats.totalInputTokens;
+    totals.totalOutputTokens += session.stats.totalOutputTokens;
+    totals.cachedInputTokens += session.stats.cachedInputTokens;
+    totals.reasoningTokens += session.stats.reasoningTokens;
+}
+
+/** Sum per-session stats across a list of sessions, both combined and per agent. */
+export function sumSessionTotals(sessions: Session[]): GlobalSessionTotals
+{
+    const combined = emptyTotals();
+    const perAgent = new Map<string, AgentTotals>();
+
+    for (const s of sessions)
+    {
+        addSession(combined, s);
+        let row = perAgent.get(s.agent);
+        if (!row)
+        {
+            row = emptyTotals();
+            perAgent.set(s.agent, row);
+        }
+        addSession(row, s);
+    }
+
+    return {
+        ...combined,
+        byAgent: [...perAgent].map(([agent, totals]) => ({ agent, totals })),
+    };
+}
+
+/** Print the per-session totals block, broken down per agent. No-op when no session carries stats. */
 function printSessionTotalsBlock(sessionTotals: GlobalSessionTotals): void
 {
     if (sessionTotals.withStats === 0) { return; }
-    console.log(`Per-session totals (summed from transcripts, ${sessionTotals.withStats} sessions with stats)`);
-    console.log(`  input          ${fmt(sessionTotals.totalInputTokens)}    (cached: ${fmt(sessionTotals.cachedInputTokens)})`);
-    console.log(`  output         ${fmt(sessionTotals.totalOutputTokens)}    (reasoning: ${fmt(sessionTotals.reasoningTokens)})`);
+
+    const rows = sessionTotals.byAgent
+        .filter(r => r.totals.withStats > 0)
+        .map(r => ({ label: r.agent, totals: r.totals }));
+
+    // With a single agent the total row would just repeat the row above it.
+    if (rows.length > 1) { rows.push({ label: "total", totals: sessionTotals }); }
+
+    const width = (pick: (t: AgentTotals) => number): number =>
+        Math.max(...rows.map(r => fmt(pick(r.totals)).length));
+
+    const labelWidth = Math.max(...rows.map(r => r.label.length));
+    const sessWidth = width(t => t.withStats);
+    const inWidth = width(t => t.totalInputTokens);
+    const outWidth = width(t => t.totalOutputTokens);
+
+    console.log("Per-session totals (from transcripts on disk)");
+    for (const { label, totals } of rows)
+    {
+        console.log(
+            `  ${label.padEnd(labelWidth)}  ${fmt(totals.withStats).padStart(sessWidth)} sess`
+            + `   in ${fmt(totals.totalInputTokens).padStart(inWidth)}`
+            + `   out ${fmt(totals.totalOutputTokens).padStart(outWidth)}`,
+        );
+    }
+    console.log(`  cached ${fmt(sessionTotals.cachedInputTokens)}   reasoning ${fmt(sessionTotals.reasoningTokens)}`);
     console.log("");
 }
 
 /**
- * Print Claude global stats in a human-readable layout. `global` is null when the
- * stats cache is absent — say so rather than printing zeroed all-time figures, which
- * read as "you have no sessions" instead of "there is nothing to read".
+ * Print global stats in a human-readable layout.
+ *
+ * Transcript totals are always shown; the Claude lifetime cache is layered on only when
+ * it is in scope. Every Claude-sourced heading says so, because its counts are lifetime
+ * figures that include sessions whose transcripts have since been rotated away — so they
+ * legitimately exceed the transcript numbers printed beside them.
  */
-export function printGlobalStatsPretty(global: ClaudeGlobalStats | null, sessionTotals: GlobalSessionTotals): void
+export function printGlobalStatsPretty(claude: ClaudeSection, sessionTotals: GlobalSessionTotals): void
 {
-    if (!global)
+    if (claude.kind !== "present")
     {
-        console.log("Claude stats cache not found — showing per-session totals only.");
-        console.log("");
+        if (claude.kind === "missing")
+        {
+            console.log("Claude stats cache not found — transcript totals only.");
+            console.log("");
+        }
         printSessionTotalsBlock(sessionTotals);
         return;
     }
 
-    console.log(`All-time (since ${global.firstSessionDate || "(unknown)"})`);
-    console.log(`  sessions      ${fmt(global.totalSessions)}`);
+    const global = claude.stats;
+    const onDisk = sessionTotals.byAgent.find(r => r.agent === "claude")?.totals.sessions;
+
+    console.log(`All-time (Claude Code cache, since ${global.firstSessionDate || "(unknown)"})`);
+    const rotated = onDisk !== undefined ? `   (${fmt(onDisk)} transcripts still on disk)` : "";
+    console.log(`  sessions      ${fmt(global.totalSessions)}${rotated}`);
     console.log(`  messages      ${fmt(global.totalMessages)}`);
     if (global.longestSession.sessionId)
     {
-        const mins = Math.round(global.longestSession.duration / 60_000);
-        console.log(`  longest       ${fmt(global.longestSession.messageCount)} msgs (${mins} min)  ${global.longestSession.sessionId}`);
+        console.log(`  longest       ${fmt(global.longestSession.messageCount)} msgs (${duration(global.longestSession.duration)})  ${global.longestSession.sessionId}`);
     }
     console.log("");
 
@@ -817,7 +908,7 @@ export function printGlobalStatsPretty(global: ClaudeGlobalStats | null, session
         .slice(0, 5);
     if (hours.length > 0)
     {
-        console.log("Busiest hours (messages)");
+        console.log("Busiest hours (Claude only, messages)");
         for (const [hour, count] of hours)
         {
             console.log(`  ${hour.padStart(2, "0")}:00  ${fmt(count)}`);
