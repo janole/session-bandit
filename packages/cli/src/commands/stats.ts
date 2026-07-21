@@ -2,6 +2,7 @@ import { type ClaudeGlobalStats, readClaudeStatsCache } from "@session-bandit/co
 import { Command } from "commander";
 
 import { printGlobalStatsJson, printGlobalStatsPretty, printSessionStatsJson, printSessionStatsPretty, sumSessionTotals } from "../format.js";
+import { resolveSession } from "../resolve.js";
 import { filterSessions, isValidAgent, type ScanFn } from "../scan.js";
 
 /** A function that returns the Claude global aggregate stats (or null if unavailable). */
@@ -41,39 +42,16 @@ export function makeStatsCommand(scanFn: ScanFn, getGlobalStats: GlobalStatsFn =
                 return;
             }
 
-            const sessions = scanFn();
-            const candidates = sessions.filter((s) =>
-            {
-                if (opts.agent && s.agent !== opts.agent) { return false; }
-                return s.sessionId === sessionId || s.sessionId.startsWith(sessionId);
-            });
-
-            if (candidates.length === 0)
-            {
-                console.error(`No session found matching "${sessionId}".`);
-                process.exitCode = 1;
-                return;
-            }
-            if (candidates.length > 1)
-            {
-                console.error(
-                    `Ambiguous session prefix "${sessionId}" — matches ${candidates.length} sessions:`,
-                );
-                for (const c of candidates.slice(0, 10))
-                {
-                    console.error(`  ${c.agent}  ${c.sessionId}  ${c.startedAt}`);
-                }
-                process.exitCode = 1;
-                return;
-            }
+            const session = resolveSession(scanFn(), sessionId, opts.agent);
+            if (!session) { return; }
 
             if (opts.pretty)
             {
-                printSessionStatsPretty(candidates[0]!);
+                printSessionStatsPretty(session);
             }
             else
             {
-                printSessionStatsJson(candidates[0]!);
+                printSessionStatsJson(session);
             }
         });
     return cmd;
