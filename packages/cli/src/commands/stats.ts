@@ -93,26 +93,13 @@ function printGlobal(scanFn: ScanFn, opts: StatsOptions, getGlobalStats: GlobalS
     const filtered = filterSessions(sessions, { agent: opts.agent });
     const totals = sumSessionTotals(filtered);
 
+    // A missing Claude stats cache is not an error as long as transcripts carry usage —
+    // both printers render `null` as "cache absent" rather than as zeroed totals.
     const global = getGlobalStats();
-    if (!global)
+    if (!global && totals.withStats === 0)
     {
-        // No Claude stats cache available — fall back to summed per-session totals only.
-        if (totals.withStats === 0)
-        {
-            console.error("No stats available: Claude's stats cache was not found and no sessions carry token usage.");
-            process.exitCode = 1;
-            return;
-        }
-        if (opts.pretty)
-        {
-            // Reuse the global pretty printer with an empty Claude global so only
-            // the per-session totals and (empty) hour/model sections render.
-            printGlobalStatsPretty(emptyClaudeGlobal(), totals);
-        }
-        else
-        {
-            console.log(JSON.stringify({ global: null, sessionTotals: totals }));
-        }
+        console.error("No stats available: Claude's stats cache was not found and no sessions carry token usage.");
+        process.exitCode = 1;
         return;
     }
 
@@ -124,21 +111,4 @@ function printGlobal(scanFn: ScanFn, opts: StatsOptions, getGlobalStats: GlobalS
     {
         printGlobalStatsJson(global, totals);
     }
-}
-
-/** An empty Claude global stats object, used when the cache is missing but per-session totals exist. */
-function emptyClaudeGlobal()
-{
-    return {
-        version: 0,
-        lastComputedDate: "",
-        totalSessions: 0,
-        totalMessages: 0,
-        firstSessionDate: "",
-        longestSession: { sessionId: "", duration: 0, messageCount: 0, timestamp: "" },
-        modelUsage: {},
-        dailyActivity: [],
-        dailyModelTokens: [],
-        hourCounts: {},
-    };
 }

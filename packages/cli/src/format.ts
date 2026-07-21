@@ -721,8 +721,8 @@ function pctOf(part: number, whole: number): number | null
     return Math.round((part / whole) * 100);
 }
 
-/** Print Claude global stats as JSON. */
-export function printGlobalStatsJson(global: ClaudeGlobalStats, sessionTotals: GlobalSessionTotals): void
+/** Print Claude global stats as JSON. `global` is null when the stats cache is absent. */
+export function printGlobalStatsJson(global: ClaudeGlobalStats | null, sessionTotals: GlobalSessionTotals): void
 {
     console.log(JSON.stringify({ global, sessionTotals }));
 }
@@ -761,9 +761,31 @@ export function sumSessionTotals(sessions: Session[]): GlobalSessionTotals
     return totals;
 }
 
-/** Print Claude global stats in a human-readable layout. */
-export function printGlobalStatsPretty(global: ClaudeGlobalStats, sessionTotals: GlobalSessionTotals): void
+/** Print the per-session totals block, summed from transcripts. No-op when no session carries stats. */
+function printSessionTotalsBlock(sessionTotals: GlobalSessionTotals): void
 {
+    if (sessionTotals.withStats === 0) { return; }
+    console.log(`Per-session totals (summed from transcripts, ${sessionTotals.withStats} sessions with stats)`);
+    console.log(`  input          ${fmt(sessionTotals.totalInputTokens)}    (cached: ${fmt(sessionTotals.cachedInputTokens)})`);
+    console.log(`  output         ${fmt(sessionTotals.totalOutputTokens)}    (reasoning: ${fmt(sessionTotals.reasoningTokens)})`);
+    console.log("");
+}
+
+/**
+ * Print Claude global stats in a human-readable layout. `global` is null when the
+ * stats cache is absent — say so rather than printing zeroed all-time figures, which
+ * read as "you have no sessions" instead of "there is nothing to read".
+ */
+export function printGlobalStatsPretty(global: ClaudeGlobalStats | null, sessionTotals: GlobalSessionTotals): void
+{
+    if (!global)
+    {
+        console.log("Claude stats cache not found — showing per-session totals only.");
+        console.log("");
+        printSessionTotalsBlock(sessionTotals);
+        return;
+    }
+
     console.log(`All-time (since ${global.firstSessionDate || "(unknown)"})`);
     console.log(`  sessions      ${fmt(global.totalSessions)}`);
     console.log(`  messages      ${fmt(global.totalMessages)}`);
@@ -788,13 +810,7 @@ export function printGlobalStatsPretty(global: ClaudeGlobalStats, sessionTotals:
         console.log("");
     }
 
-    if (sessionTotals.withStats > 0)
-    {
-        console.log(`Per-session totals (summed from transcripts, ${sessionTotals.withStats} sessions with stats)`);
-        console.log(`  input          ${fmt(sessionTotals.totalInputTokens)}    (cached: ${fmt(sessionTotals.cachedInputTokens)})`);
-        console.log(`  output         ${fmt(sessionTotals.totalOutputTokens)}    (reasoning: ${fmt(sessionTotals.reasoningTokens)})`);
-        console.log("");
-    }
+    printSessionTotalsBlock(sessionTotals);
 
     const hours = Object.entries(global.hourCounts)
         .sort((a, b) => b[1] - a[1])

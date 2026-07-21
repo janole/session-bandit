@@ -238,6 +238,19 @@ describe("stats command --global", () =>
         expect(exitCode).toBe(0);
         expect(stdout).toContain("Per-session totals");
         expect(stdout).toContain("72,864");
+        // A missing cache must say so, not report zeroed all-time figures that read
+        // as "you have no sessions" rather than "there is nothing to read".
+        expect(stdout).toContain("Claude stats cache not found");
+        expect(stdout).not.toContain("All-time");
+    });
+
+    it("reports a missing cache as null in JSON, not as zeroes", () =>
+    {
+        const { stdout, exitCode } = runStats(["--global"], null);
+        expect(exitCode).toBe(0);
+        const view = JSON.parse(stdout);
+        expect(view.global).toBeNull();
+        expect(view.sessionTotals.withStats).toBe(1);
     });
 
     it("errors when no global cache and no sessions carry stats", () =>
