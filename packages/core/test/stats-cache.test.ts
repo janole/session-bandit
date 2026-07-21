@@ -1,3 +1,5 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
@@ -74,5 +76,42 @@ describe("readClaudeStatsCache", () =>
     {
         expect(stats.hourCounts["22"]).toBe(36);
         expect(stats.hourCounts["10"]).toBe(31);
+    });
+});
+
+describe("readClaudeStatsCache — drift tolerance", () =>
+{
+    /** Write a cache document to a temp file and decode it. */
+    function decode(doc: unknown): NonNullable<ReturnType<typeof readClaudeStatsCache>>
+    {
+        const file = join(mkdtempSync(join(tmpdir(), "sb-stats-")), "stats-cache.json");
+        writeFileSync(file, JSON.stringify(doc), "utf8");
+        return readClaudeStatsCache(file)!;
+    }
+
+    it("coerces a malformed longestSession instead of passing it through", () =>
+    {
+        const stats = decode({ longestSession: "not an object" });
+        expect(stats.longestSession).toEqual({ sessionId: "", duration: 0, messageCount: 0, timestamp: "" });
+    });
+
+    it("drops non-numeric hourCounts entries rather than NaN-sorting them later", () =>
+    {
+        const stats = decode({ hourCounts: { "10": 31, "11": "many", "12": null } });
+        expect(stats.hourCounts).toEqual({ "10": 31 });
+    });
+
+    it("keeps only object entries in the daily arrays", () =>
+    {
+        const stats = decode({ dailyActivity: [{ date: "2026-01-22" }, "junk", null, 7] });
+        expect(stats.dailyActivity).toHaveLength(1);
+    });
+
+    it("falls back to empty collections when the fields are the wrong type", () =>
+    {
+        const stats = decode({ dailyActivity: "nope", dailyModelTokens: 3, hourCounts: [1, 2] });
+        expect(stats.dailyActivity).toEqual([]);
+        expect(stats.dailyModelTokens).toEqual([]);
+        expect(stats.hourCounts).toEqual({});
     });
 });

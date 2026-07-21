@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 
+import { num } from "./num.js";
+
 /** Default location of the Claude aggregate stats cache. */
 export const DEFAULT_CLAUDE_STATS_CACHE_PATH = "~/.claude/stats-cache.json";
 
@@ -125,22 +127,47 @@ export function readClaudeStatsCache(path: string = DEFAULT_CLAUDE_STATS_CACHE_P
         totalSessions: num(doc.totalSessions),
         totalMessages: num(doc.totalMessages),
         firstSessionDate: str(doc.firstSessionDate),
-        longestSession: doc.longestSession ?? { sessionId: "", duration: 0, messageCount: 0, timestamp: "" },
+        longestSession: longestSessionOf(doc.longestSession),
         modelUsage,
-        dailyActivity: Array.isArray(doc.dailyActivity) ? doc.dailyActivity : [],
-        dailyModelTokens: Array.isArray(doc.dailyModelTokens) ? doc.dailyModelTokens : [],
-        hourCounts: doc.hourCounts ?? {},
+        dailyActivity: recordsOf(doc.dailyActivity),
+        dailyModelTokens: recordsOf(doc.dailyModelTokens),
+        hourCounts: numberRecordOf(doc.hourCounts),
     };
-}
-
-/** Coerce an unknown value to a non-negative integer, defaulting to 0. */
-function num(v: unknown): number
-{
-    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
 }
 
 /** Coerce an unknown value to a string, defaulting to "". */
 function str(v: unknown): string
 {
     return typeof v === "string" ? v : "";
+}
+
+/** Coerce the longest-session record, defaulting every field. */
+function longestSessionOf(v: unknown): ClaudeLongestSession
+{
+    const r = (v && typeof v === "object" ? v : {}) as Partial<ClaudeLongestSession>;
+    return {
+        sessionId: str(r.sessionId),
+        duration: num(r.duration),
+        messageCount: num(r.messageCount),
+        timestamp: str(r.timestamp),
+    };
+}
+
+/** Keep only the object entries of an array value; anything else becomes an empty list. */
+function recordsOf<T>(v: unknown): T[]
+{
+    if (!Array.isArray(v)) { return []; }
+    return v.filter(entry => entry !== null && typeof entry === "object" && !Array.isArray(entry)) as T[];
+}
+
+/** Coerce a value to a record of finite numbers, dropping non-numeric entries. */
+function numberRecordOf(v: unknown): Record<string, number>
+{
+    if (!v || typeof v !== "object" || Array.isArray(v)) { return {}; }
+    const out: Record<string, number> = {};
+    for (const [key, value] of Object.entries(v as Record<string, unknown>))
+    {
+        if (typeof value === "number" && Number.isFinite(value)) { out[key] = value; }
+    }
+    return out;
 }

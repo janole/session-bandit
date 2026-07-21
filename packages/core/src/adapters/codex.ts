@@ -2,6 +2,7 @@ import { readdirSync, readFileSync,statSync } from "node:fs";
 import { basename } from "node:path";
 
 import type { Adapter } from "../adapter.js";
+import { num } from "../num.js";
 import type { Message, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
@@ -605,11 +606,6 @@ function processEventMsg(payload: EventMsgPayload, ctx: ParseContext): void
     }
 }
 
-/** Coerce an unknown value to a non-negative number, defaulting to 0. */
-function num(v: unknown): number
-{
-    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
-}
 
 /** Build the aggregate {@link SessionStats} for a Codex session from accumulated token counts. */
 function buildCodexStats(ctx: ParseContext): SessionStats | undefined

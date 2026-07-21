@@ -3,6 +3,7 @@ import { basename, dirname,join } from "node:path";
 
 import type { Adapter } from "../adapter.js";
 import { readJsonl } from "../jsonl.js";
+import { num } from "../num.js";
 import type { Message, MessageStats, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
@@ -334,11 +335,6 @@ function claudeSessionStats(totals: ClaudeTotals): SessionStats | undefined
     };
 }
 
-/** Coerce an unknown value to a non-negative number, defaulting to 0. */
-function num(v: unknown): number
-{
-    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
-}
 
 export const claudeAdapter: Adapter = {
     agent: "claude",

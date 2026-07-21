@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
 import type { Adapter } from "../adapter.js";
+import { num } from "../num.js";
 import type { Message, RelatedSessionReference, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
@@ -741,11 +742,6 @@ function buildBotBanditStats(ctx: ParseContext): SessionStats | undefined
     };
 }
 
-/** Coerce an unknown value to a non-negative number, defaulting to 0. */
-function num(v: unknown): number
-{
-    return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : 0;
-}
 
 export const botbanditAdapter: Adapter = {
     agent: "botbandit",
