@@ -3,7 +3,8 @@ import { basename, dirname,join } from "node:path";
 
 import type { Adapter } from "../adapter.js";
 import { readJsonl } from "../jsonl.js";
-import type { Message, Session, ToolCall } from "../types.js";
+import { num } from "../num.js";
+import type { Message, MessageStats, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
  * Claude Code stores sessions under `~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`
@@ -45,7 +46,16 @@ interface ClaudeLine {
         role?: string;
         model?: string;
         content?: string | ContentBlock[];
+        usage?: ClaudeUsage;
     };
+}
+
+/** Claude `message.usage` block on assistant lines (per-turn token accounting). */
+interface ClaudeUsage {
+    input_tokens?: number;
+    output_tokens?: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
 }
 
 /** Decode an encoded-cwd directory name (`-Users-ole-foo`) back to a path (`/Users/ole/foo`). */
@@ -112,6 +122,9 @@ function parseClaude(filePath: string): Session
     // We match results to the most recent tool_use with that id.
     const toolUseIndex = new Map<string, { msg: Message; idx: number }>();
 
+    // Accumulated per-session token totals from assistant `message.usage` blocks.
+    const totals: ClaudeTotals = { input: 0, output: 0, cached: 0, peakContext: null, lastContext: null };
+
     const messages: Message[] = [];
 
     for (const line of lines) 
@@ -136,12 +149,18 @@ function parseClaude(filePath: string): Session
                 .map((b) => b.text as string)
                 .join("\n");
             const toolCalls = toolCallsFromAssistant(line);
+            const stats = messageStatsFromUsage(line.message?.usage);
             const msg: Message = {
                 role: "assistant",
                 text,
                 toolCalls,
                 timestamp: line.timestamp ?? null,
             };
+            if (stats)
+            {
+                msg.stats = stats;
+                accumulateUsage(stats, totals);
+            }
             // register tool_use ids for result matching (position-aligned to toolCalls)
             const useIds = blocksOf(line)
                 .filter((b) => b.type === "tool_use" && b.id)
@@ -238,8 +257,84 @@ function parseClaude(filePath: string): Session
         model,
         messageCount: messages.length,
         messages,
+        stats: claudeSessionStats(totals),
     };
 }
+
+/** Build a assistant {@link MessageStats} from a Claude `usage` block. */
+function messageStatsFromUsage(usage: ClaudeUsage | undefined): MessageStats | undefined
+{
+    if (!usage || typeof usage !== "object") { return undefined; }
+    const input = num(usage.input_tokens);
+    const output = num(usage.output_tokens);
+    const cacheCreate = num(usage.cache_creation_input_tokens);
+    const cacheRead = num(usage.cache_read_input_tokens);
+    // No `usage` block fields means the message carried no token accounting.
+    if (input === 0 && output === 0 && cacheCreate === 0 && cacheRead === 0)
+    {
+        return undefined;
+    }
+    return {
+        inputTokens: input,
+        outputTokens: output,
+        cachedInputTokens: cacheCreate + cacheRead,
+        reasoningTokens: 0,
+        // The prompt size for this turn = fresh input + cached creation + cached reads.
+        contextSize: input + cacheCreate + cacheRead,
+    };
+}
+
+/** Running per-session token totals and context-size tracking for a Claude session. */
+interface ClaudeTotals {
+    input: number;
+    output: number;
+    cached: number;
+    /** Largest per-turn prompt size seen; exceeds the final size when the session was compacted. */
+    peakContext: number | null;
+    /** Prompt size of the most recent turn. */
+    lastContext: number | null;
+}
+
+/** Accumulate a per-turn {@link MessageStats} into the running session totals. */
+function accumulateUsage(stats: MessageStats, totals: ClaudeTotals): void
+{
+    totals.input += stats.inputTokens;
+    totals.output += stats.outputTokens;
+    totals.cached += stats.cachedInputTokens;
+
+    // Each turn's prompt size is already computed as contextSize; the session-level
+    // peak and final sizes are just the max and the last of those.
+    const ctx = stats.contextSize;
+    if (ctx !== null && ctx > 0)
+    {
+        totals.lastContext = ctx;
+        if (totals.peakContext === null || ctx > totals.peakContext)
+        {
+            totals.peakContext = ctx;
+        }
+    }
+}
+
+/** Build the aggregate {@link SessionStats} for a Claude session. */
+function claudeSessionStats(totals: ClaudeTotals): SessionStats | undefined
+{
+    if (totals.input === 0 && totals.output === 0 && totals.cached === 0)
+    {
+        return undefined;
+    }
+    return {
+        totalInputTokens: totals.input,
+        totalOutputTokens: totals.output,
+        cachedInputTokens: totals.cached,
+        reasoningTokens: 0,
+        // Claude's transcript does not carry the model's context-window limit, so
+        // sizes are reported in absolute tokens with no percentage.
+        contextWindow: null,
+        finalContextSize: totals.lastContext,
+        peakContextSize: totals.peakContext,
+    };
+}
+
 
 export const claudeAdapter: Adapter = {
     agent: "claude",

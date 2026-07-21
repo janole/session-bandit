@@ -11,6 +11,7 @@ const toolFile = join(fixtureRoot, "tool-session.jsonl");
 const summaryFile = join(fixtureRoot, "summary-session.jsonl");
 const codexWrapperFile = join(fixtureRoot, "codex-wrapper-session.jsonl");
 const noticeFile = join(fixtureRoot, "notice-session.jsonl");
+const multistepLoopFile = join(fixtureRoot, "multistep-loop-session.jsonl");
 
 describe("botbanditAdapter basics", () =>
 {
@@ -30,7 +31,7 @@ describe("botbanditAdapter.discover", () =>
     it("finds top-level .jsonl session files", () =>
     {
         const files = botbanditAdapter.discover(fixtureRoot);
-        expect(files).toHaveLength(5);
+        expect(files).toHaveLength(6);
         expect(files).toEqual([...files].sort());
         expect(files.some(file => file.endsWith("simple-session.jsonl"))).toBe(true);
     });
@@ -135,6 +136,75 @@ describe("botbanditAdapter.parse — tool session", () =>
     it("does not emit an extra tool message when the result matched an assistant call", () =>
     {
         expect(session.messages.map(message => message.role)).toEqual(["user", "assistant", "assistant"]);
+    });
+});
+
+// ---- token / context stats ------------------------------------------------
+
+describe("botbanditAdapter.parse — stats (turn_end / loop_end usage)", () =>
+{
+    it("accumulates usage from turn_end only (loop_end is an aggregate duplicate)", () =>
+    {
+        // The fixture has a turn_end and a loop_end with identical usage
+        // inputTokens=92789, cachedInputTokens=5504, outputTokens=788,
+        // reasoningTokens=53. loop_end.usage is the accumulated sum of all steps
+        // in the loop (botbandit builds it via addLanguageModelUsage), so it MUST
+        // NOT be accumulated again — that would double-count every token.
+        // BotBandit inputTokens includes cached and outputTokens includes reasoning,
+        // so totals are normalized to fresh input / non-reasoning output.
+        const s = botbanditAdapter.parse(toolFile);
+        expect(s.stats).toBeDefined();
+        expect(s.stats!.totalInputTokens).toBe(92789 - 5504);
+        expect(s.stats!.totalOutputTokens).toBe(788 - 53);
+        expect(s.stats!.cachedInputTokens).toBe(5504);
+        expect(s.stats!.reasoningTokens).toBe(53);
+    });
+
+    it("tracks peak and final context size from inputTokens (the prompt size)", () =>
+    {
+        const s = botbanditAdapter.parse(toolFile);
+        expect(s.stats!.peakContextSize).toBe(92789);
+        expect(s.stats!.finalContextSize).toBe(92789);
+    });
+
+    it("attaches per-turn usage to the nearest preceding assistant message", () =>
+    {
+        const s = botbanditAdapter.parse(toolFile);
+        const last = s.messages[s.messages.length - 1]!;
+        expect(last.role).toBe("assistant");
+        expect(last.stats).toBeDefined();
+        // Fresh input = input - cached; contextSize is the full prompt (input includes cached).
+        expect(last.stats!.inputTokens).toBe(92789 - 5504);
+        expect(last.stats!.outputTokens).toBe(788 - 53);
+        expect(last.stats!.cachedInputTokens).toBe(5504);
+        // contextSize falls back to totalTokens when inputTokens is 0; here inputTokens
+        // is populated so contextSize equals inputTokens (the full prompt including cached).
+        expect(last.stats!.contextSize).toBe(92789);
+    });
+
+    it("leaves stats undefined when no usage events are present", () =>
+    {
+        expect(botbanditAdapter.parse(simpleFile).stats).toBeUndefined();
+    });
+
+    // Regression: loop_end.usage is the accumulated sum of all turn_end usages in
+    // the loop (botbandit builds it via addLanguageModelUsage in agent-session.ts).
+    // It MUST NOT feed the stats — otherwise every token is double-counted and
+    // peakContextSize is inflated by a multi-step aggregate instead of the real
+    // per-turn prompt size. This is the exact shape of the user-reported 1.77M
+    // peak on a ~161k-window session.
+    it("ignores loop_end aggregate usage (no double-count, peak is per-turn)", () =>
+    {
+        // Fixture: 3 turn_ends with inputTokens 100000 / 120000 / 150000, then a
+        // loop_end with inputTokens 370000 (the sum of the three turns).
+        const s = botbanditAdapter.parse(multistepLoopFile);
+        expect(s.stats).toBeDefined();
+        // Totals = sum of turn_ends only, NOT including the 370000 loop_end aggregate.
+        expect(s.stats!.totalInputTokens).toBe(100000 + 120000 + 150000);
+        expect(s.stats!.totalOutputTokens).toBe(500 + 600 + 700);
+        // Peak is the largest single turn_end, not the 370000 loop aggregate.
+        expect(s.stats!.peakContextSize).toBe(150000);
+        expect(s.stats!.finalContextSize).toBe(150000);
     });
 });
 

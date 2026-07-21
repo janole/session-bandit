@@ -166,3 +166,51 @@ describe("claudeAdapter.parse", () =>
         expect(s.messages).toEqual([]);
     });
 });
+
+// ---- token / context stats ------------------------------------------------
+
+describe("claudeAdapter.parse — stats (message.usage)", () =>
+{
+    let session!: Session;
+    beforeAll(() =>
+    {
+        session = claudeAdapter.parse(fixtureFile);
+    });
+
+    it("captures per-assistant-message usage", () =>
+    {
+        const assistants = session.messages.filter((m) => m.role === "assistant");
+        const a1 = assistants.find((m) => m.text.includes("I'll look at the commit"));
+        expect(a1!.stats).toBeDefined();
+        expect(a1!.stats!.inputTokens).toBe(2);
+        expect(a1!.stats!.outputTokens).toBe(353);
+        expect(a1!.stats!.cachedInputTokens).toBe(8375 + 7732);
+        // Claude prompt size = fresh input + cache creation + cache reads.
+        expect(a1!.stats!.contextSize).toBe(2 + 8375 + 7732);
+        expect(a1!.stats!.reasoningTokens).toBe(0);
+    });
+
+    it("sums per-message usage into session totals", () =>
+    {
+        expect(session.stats).toBeDefined();
+        expect(session.stats!.totalInputTokens).toBe(2 + 12);
+        expect(session.stats!.totalOutputTokens).toBe(353 + 410);
+        expect(session.stats!.cachedInputTokens).toBe((8375 + 7732) + (9000 + 20000));
+    });
+
+    it("does not report a context-window limit for Claude", () =>
+    {
+        // Claude's transcript carries per-turn prompt sizes but not the model's limit,
+        // so context sizes are reported in absolute tokens with no percentage.
+        expect(session.stats!.contextWindow).toBeNull();
+    });
+
+    it("derives peak and final context size from per-turn prompt sizes", () =>
+    {
+        // Each turn's prompt size is input + cache_creation + cache_read.
+        const turn1 = 2 + 8375 + 7732;
+        const turn2 = 12 + 9000 + 20000;
+        expect(session.stats!.finalContextSize).toBe(turn2);
+        expect(session.stats!.peakContextSize).toBe(Math.max(turn1, turn2));
+    });
+});

@@ -2,7 +2,8 @@ import { readdirSync, readFileSync,statSync } from "node:fs";
 import { basename } from "node:path";
 
 import type { Adapter } from "../adapter.js";
-import type { Message, Session, ToolCall } from "../types.js";
+import { num } from "../num.js";
+import type { Message, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
  * Codex stores sessions under `$CODEX_HOME/sessions` (default `~/.codex/sessions`).
@@ -81,6 +82,28 @@ interface SessionMeta {
     source?: string;
     model_provider?: string;
     instructions?: string | null;
+}
+
+/** A Codex `event_msg` `token_count` payload: running session totals + last-turn delta. */
+interface TokenCountInfo {
+    total_token_usage?: TokenUsage;
+    last_token_usage?: TokenUsage;
+    model_context_window?: number;
+}
+
+/** Codex token-usage shape (input / cached / output / reasoning / total). */
+interface TokenUsage {
+    input_tokens?: number;
+    cached_input_tokens?: number;
+    output_tokens?: number;
+    reasoning_output_tokens?: number;
+    total_tokens?: number;
+}
+
+/** A Codex `event_msg` payload (only `token_count` is consumed; others skipped). */
+interface EventMsgPayload {
+    type?: string;
+    info?: TokenCountInfo | null;
 }
 
 interface LegacyJson {
@@ -180,6 +203,16 @@ interface ParseContext {
     messages: Message[];
     /** call_id → the ToolCall to attach output to. */
     callIndex: Map<string, ToolCall>;
+    /** Running session token totals from the most recent `token_count` event. */
+    totalUsage: TokenUsage | null;
+    /** Context-window limit reported by Codex (from `token_count.info.model_context_window`). */
+    contextWindow: number | null;
+    /** Peak context size observed across `token_count` events. */
+    peakContextSize: number | null;
+    /** Last context size observed (becomes `finalContextSize`). */
+    lastContextSize: number | null;
+    /** Most recent assistant message, to attach per-turn `last_token_usage` to. */
+    lastAssistant: Message | null;
 }
 
 /** Process one normalized item (from any format) into messages/tool calls. */
@@ -212,6 +245,7 @@ function processItem(item: Item, ts: string | null, ctx: ParseContext): void
                 toolCalls: [],
                 timestamp: ts,
             });
+            ctx.lastAssistant = ctx.messages[ctx.messages.length - 1] ?? null;
         }
         // developer / system messages are instructions/permissions — skipped
         return;
@@ -249,12 +283,14 @@ function processItem(item: Item, ts: string | null, ctx: ParseContext): void
             output: null,
         };
         if (call_id) {ctx.callIndex.set(call_id, tc);}
-        ctx.messages.push({
+        const msg: Message = {
             role: "assistant",
             text: "",
             toolCalls: [tc],
             timestamp: ts,
-        });
+        };
+        ctx.messages.push(msg);
+        ctx.lastAssistant = msg;
         return;
     }
 
@@ -362,6 +398,11 @@ function parseLegacyJson(
         model: null,
         messages: [],
         callIndex: new Map(),
+        totalUsage: null,
+        contextWindow: null,
+        peakContextSize: null,
+        lastContextSize: null,
+        lastAssistant: null,
     };
 
     for (const item of doc.items ?? []) 
@@ -387,6 +428,11 @@ function parseJsonl(raw: string, filePath: string, fileName: string): Session
         model: null,
         messages: [],
         callIndex: new Map(),
+        totalUsage: null,
+        contextWindow: null,
+        peakContextSize: null,
+        lastContextSize: null,
+        lastAssistant: null,
     };
 
     for (const line of lines) 
@@ -489,7 +535,101 @@ function processEnvelope(env: Envelope, ctx: ParseContext): void
         return;
     }
 
-    // event_msg and unknown envelope types — skipped
+    if (type === "event_msg" && payload && typeof payload === "object")
+    {
+        processEventMsg(payload as EventMsgPayload, ctx);
+        return;
+    }
+
+    // unknown envelope types — skipped
+}
+
+/**
+ * Process a Codex `event_msg` payload. Only `token_count` is consumed: it
+ * carries running session totals, the last-turn delta, the model's context
+ * window, and the current context size. Other event types (`task_started`,
+ * `task_complete`, …) are skipped.
+ *
+ * Codex (OpenAI) token accounting differs from Claude's: `input_tokens`
+ * already includes cached tokens (`cached_input_tokens` is the cached subset),
+ * and `output_tokens` already includes reasoning (`reasoning_output_tokens`
+ * is the reasoning subset). `total_token_usage` is cumulative across the
+ * session; `last_token_usage` is the delta for the most recent turn. The
+ * current context size at a turn is that turn's prompt size =
+ * `last_token_usage.input_tokens` (which already counts cached tokens).
+ */
+function processEventMsg(payload: EventMsgPayload, ctx: ParseContext): void
+{
+    if (payload.type !== "token_count") { return; }
+
+    const info = payload.info;
+    if (!info || typeof info !== "object") { return; }
+
+    if (typeof info.model_context_window === "number")
+    {
+        ctx.contextWindow = info.model_context_window;
+    }
+
+    const total = info.total_token_usage;
+    if (total && typeof total === "object")
+    {
+        ctx.totalUsage = total;
+    }
+
+    // The current context size is the prompt size of the most recent turn.
+    // Codex's `last_token_usage.input_tokens` already includes cached tokens,
+    // so it is the full prompt size for that turn — not the cumulative total.
+    const last = info.last_token_usage;
+    if (last && typeof last === "object")
+    {
+        const turnContextSize = num(last.input_tokens);
+        if (turnContextSize > 0)
+        {
+            ctx.lastContextSize = turnContextSize;
+            if (ctx.peakContextSize === null || turnContextSize > ctx.peakContextSize)
+            {
+                ctx.peakContextSize = turnContextSize;
+            }
+        }
+
+        // Attach the per-turn delta to the nearest preceding assistant message.
+        if (ctx.lastAssistant && !ctx.lastAssistant.stats)
+        {
+            ctx.lastAssistant.stats = {
+                inputTokens: num(last.input_tokens) - num(last.cached_input_tokens),
+                outputTokens: num(last.output_tokens) - num(last.reasoning_output_tokens),
+                cachedInputTokens: num(last.cached_input_tokens),
+                reasoningTokens: num(last.reasoning_output_tokens),
+                contextSize: turnContextSize > 0 ? turnContextSize : null,
+            };
+        }
+    }
+}
+
+
+/** Build the aggregate {@link SessionStats} for a Codex session from accumulated token counts. */
+function buildCodexStats(ctx: ParseContext): SessionStats | undefined
+{
+    if (!ctx.totalUsage && ctx.contextWindow === null && ctx.lastContextSize === null)
+    {
+        return undefined;
+    }
+    const t = ctx.totalUsage;
+    // Codex `input_tokens` includes cached; `output_tokens` includes reasoning.
+    // Normalize to the Claude convention: fresh input / non-reasoning output.
+    const totalInput = t ? num(t.input_tokens) : 0;
+    const cached = t ? num(t.cached_input_tokens) : 0;
+    const totalOutput = t ? num(t.output_tokens) : 0;
+    const reasoning = t ? num(t.reasoning_output_tokens) : 0;
+    return {
+        totalInputTokens: Math.max(totalInput - cached, 0),
+        totalOutputTokens: Math.max(totalOutput - reasoning, 0),
+        cachedInputTokens: cached,
+        reasoningTokens: reasoning,
+        contextWindow: ctx.contextWindow,
+        finalContextSize: ctx.lastContextSize,
+        peakContextSize: ctx.peakContextSize,
+    };
 }
 
 // ---- format helpers --------------------------------------------------------
@@ -579,6 +719,7 @@ function buildSession(filePath: string, ctx: ParseContext): Session
         model: ctx.model,
         messageCount: ctx.messages.length,
         messages: ctx.messages,
+        stats: buildCodexStats(ctx),
     };
 }
 

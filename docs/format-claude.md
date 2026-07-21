@@ -76,6 +76,27 @@ The adapter:
 - **Skips `thinking` blocks** from `Message.text` to keep the transcript
   human-readable (consistent with the Codex adapter's treatment of `reasoning`).
 - Captures `message.model` as the session's `model`.
+- Captures `message.usage` (when present) into `Message.stats` and accumulates
+  it into `Session.stats`. Claude's per-assistant-line `usage` block carries:
+
+```json
+"usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 8375,
+  "cache_read_input_tokens": 7732,
+  "output_tokens": 353
+}
+```
+
+  Claude's accounting is **fresh-input**: `input_tokens` excludes cached tokens
+  (cache creation and cache reads are separate fields). So
+  `MessageStats.contextSize` (the prompt size for the turn) = `input +
+  cache_creation + cache_read`, `inputTokens` = `input_tokens` (fresh),
+  `cachedInputTokens` = `cache_creation + cache_read`. Claude's transcript does
+  not carry the model's context-window limit or a running context size, so
+  `SessionStats.contextWindow` / `finalContextSize` / `peakContextSize` are
+  `null` for Claude sessions (the per-turn `contextSize` is still on each
+  assistant `Message.stats`).
 
 **`system`** (subtype `turn_duration`) — metadata, not a transcript turn:
 

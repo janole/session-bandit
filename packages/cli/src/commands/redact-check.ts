@@ -2,6 +2,7 @@ import { buildPublishedSessionBundle, type PublishedRedactionMode,redactPublishe
 import { Command } from "commander";
 
 import { printRedactionReportJson, printRedactionReportPretty } from "../format.js";
+import { resolveSession } from "../resolve.js";
 import { isValidAgent, type ScanFn } from "../scan.js";
 
 const REDACTION_MODES = new Set(["strict", "cautious", "minimal", "none"]);
@@ -31,31 +32,9 @@ export function makeRedactCheckCommand(scanFn: ScanFn): Command
                 return;
             }
 
-            const sessions = scanFn();
-            const candidates = sessions.filter((s) =>
-            {
-                if (opts.agent && s.agent !== opts.agent) { return false; }
-                return s.sessionId === sessionId || s.sessionId.startsWith(sessionId);
-            });
+            const session = resolveSession(scanFn(), sessionId, opts.agent);
+            if (!session) { return; }
 
-            if (candidates.length === 0)
-            {
-                console.error(`No session found matching "${sessionId}".`);
-                process.exitCode = 1;
-                return;
-            }
-            if (candidates.length > 1)
-            {
-                console.error(`Ambiguous session prefix "${sessionId}" — matches ${candidates.length} sessions:`);
-                for (const c of candidates.slice(0, 10))
-                {
-                    console.error(`  ${c.agent}  ${c.sessionId}  ${c.startedAt}`);
-                }
-                process.exitCode = 1;
-                return;
-            }
-
-            const session = candidates[0]!;
             const bundle = buildPublishedSessionBundle(session, {
                 redaction: { mode: opts.redact, reportPath: "redaction-report.json" },
             });

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 
 import { printTranscript } from "../format.js";
+import { resolveSession } from "../resolve.js";
 import { isValidAgent, type ScanFn } from "../scan.js";
 
 export function makeShowCommand(scanFn: ScanFn): Command 
@@ -21,37 +22,10 @@ export function makeShowCommand(scanFn: ScanFn): Command
                 return;
             }
 
-            const sessions = scanFn();
-            // Match by full sessionId or by prefix (first N chars).
-            const candidates = sessions.filter((s) => 
-            {
-                if (opts.agent && s.agent !== opts.agent) {return false;}
-                return (
-                    s.sessionId === sessionId ||
-          s.sessionId.startsWith(sessionId)
-                );
-            });
+            const session = resolveSession(scanFn(), sessionId, opts.agent);
+            if (!session) { return; }
 
-            if (candidates.length === 0) 
-            {
-                console.error(`No session found matching "${sessionId}".`);
-                process.exitCode = 1;
-                return;
-            }
-            if (candidates.length > 1) 
-            {
-                console.error(
-                    `Ambiguous session prefix "${sessionId}" — matches ${candidates.length} sessions:`,
-                );
-                for (const c of candidates.slice(0, 10)) 
-                {
-                    console.error(`  ${c.agent}  ${c.sessionId}  ${c.startedAt}`);
-                }
-                process.exitCode = 1;
-                return;
-            }
-
-            printTranscript(candidates[0]!);
+            printTranscript(session);
         });
     return cmd;
 }

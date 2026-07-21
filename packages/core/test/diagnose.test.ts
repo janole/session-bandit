@@ -46,9 +46,9 @@ describe("diagnoseAll — botbandit details", () =>
         const botbandit = report.agents[0]!;
         const details = botbandit.details as BotBanditDoctorDetails;
         expect(botbandit.agent).toBe("botbandit");
-        expect(botbandit.files).toBe(5);
-        expect(botbandit.sessions).toBe(5);
-        expect(details.schemaVersions["2"]).toBe(5);
+        expect(botbandit.files).toBe(6);
+        expect(botbandit.sessions).toBe(6);
+        expect(details.schemaVersions["2"]).toBe(6);
     });
 
     it("reports unrecognized BotBandit event types", () =>

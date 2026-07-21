@@ -23,6 +23,7 @@ ever done with every agent.
 - **Parsing health check** — `doctor` command validates that Session Bandit's
   parsing assumptions match your real session files (format drift, injection
   markers, unrecognized types, silent skips).
+- **Token usage & context-window stats** — `stats` surfaces per-session and aggregate token usage (input/output/cache/reasoning), the model's context-window limit, and peak/final context size. Codex `token_count` events, Claude `message.usage`, and BotBandit `turn_end`/`loop_end` usage are all captured. `stats --global` reads Claude's `~/.claude/stats-cache.json` for lifetime per-model totals.
 - **Redaction preview for publishing** — `redact-check` reports what would be
   redacted from a session before a Markdown export writes public artifacts.
 - **Markdown publishing artifact** — `export-md` writes a redacted, reviewable
@@ -132,6 +133,12 @@ session-bandit redact-check 342647fa-5bf --redact strict
 session-bandit export-md 342647fa-5bf --out ./session.md
 session-bandit export-md 342647fa-5bf --out ./session.md --report-out ./redaction-report.json
 
+# Token usage and context-window stats for a session
+session-bandit stats 342647fa-5bf --pretty
+
+# Aggregate usage across all sessions (Claude stats cache + summed per-session stats)
+session-bandit stats --global --pretty
+
 # Find the sessions where something actually happened (by substance score)
 session-bandit list --sort importance --pretty
 
@@ -157,6 +164,7 @@ session-bandit search <query> [--agent <name>] [--project <path>] [--since <date
 session-bandit extract <sessionId> [--agent <name>] [--prompt handoff|memory] [--full] [--pretty]
 session-bandit redact-check <sessionId> [--agent <name>] [--redact strict|cautious|minimal|none] [--pretty]
 session-bandit export-md <sessionId> --out <path> [--agent <name>] [--title <title>] [--redact strict|cautious|minimal|none] [--report-out <path>] [--yes]
+session-bandit stats [sessionId] [--agent <name>] [--global] [--pretty]
 ```
 
 | Flag | Description |
@@ -174,6 +182,7 @@ session-bandit export-md <sessionId> --out <path> [--agent <name>] [--title <tit
 | `--report-out <path>` | `export-md`: optional redaction report JSON output path |
 | `--yes` | `export-md`: required with `--redact none` |
 | `--pretty` | Print human-readable output instead of JSON lines |
+| `--global` | `stats`: aggregate usage across all sessions (Claude stats cache + summed per-session totals) |
 
 **Output defaults to JSON lines** (one object per line) for machine
 consumption and piping. Use `--pretty` for terminal browsing.
@@ -271,6 +280,55 @@ Messages: 153
 2 matches
 ```
 
+`stats <sessionId> --pretty`:
+
+```
+Session:  019f834e-5e48-7d31-91f4-21158d035248
+Agent:    codex
+Project:  /Users/ole/projekte/codex-workspaces/janole/botbandit-ng
+Model:    gpt-5.6-sol
+Messages: 71
+
+Tokens
+  input          261,974    (cached: 3,601,408)
+  output         10,264    (reasoning: 8,413)
+  total          3,873,646
+
+Context window
+  limit      258,400
+  peak       90,134   (35%)
+  final      90,134   (35%)
+
+Per turn
+  # 1   in 32,722  out 166   ctx 32,722   (13%)
+  # 2   in 439  out 134   ctx 32,951   (13%)
+  # 3   in 4,045  out 107   ctx 36,557   (14%)
+  ...
+```
+
+`stats --global --pretty`:
+
+```
+All-time (since 2026-01-22T10:42:06.325Z)
+  sessions      434
+  messages      136,552
+  longest       5,378 msgs (12219 min)  4e4f7ab3
+
+Tokens by model (Claude aggregate)
+  claude-opus-4-8
+    in 4,616,653   out 45,713,062   cache-read 5,329,110,624   cache-create 170,472,123
+  ...
+
+Per-session totals (summed from transcripts, 1759 sessions with stats)
+  input          4,749,658,300    (cached: 6,909,776,116)
+  output         55,164,921    (reasoning: 5,361,855)
+
+Busiest hours (messages)
+  22:00  36
+  23:00  33
+  ...
+```
+
 ## Library usage
 
 The `@session-bandit/core` package exposes the indexing engine and adapters
@@ -297,7 +355,7 @@ const claudeSessions = indexSessions([{ adapter: claudeAdapter }]);
 // Each session is normalized to a common shape:
 // {
 //   agent, sessionId, filePath, project, cwd,
-//   startedAt, endedAt, model, messageCount, messages[]
+//   startedAt, endedAt, model, messageCount, messages[], stats?
 // }
 //
 // Messages use a `role` of user | assistant | system | tool | summary.
@@ -382,6 +440,7 @@ packages/
       index.ts                   indexSessions() + exports
       jsonl.ts                   JSONL reader
       diagnose.ts                doctor diagnostics (format drift, injection markers)
+      stats-cache.ts             Claude aggregate stats-cache reader (stats --global)
       adapters/
         claude.ts                Claude Code adapter
         codex.ts                 Codex adapter (3 formats)
@@ -399,6 +458,7 @@ packages/
         search.ts                search command
         extract.ts               extract command
         doctor.ts                doctor command (parsing health)
+        stats.ts                  stats command (token usage + context window)
     test/                        tests
 docs/
   prd.md                         product requirements document
@@ -434,11 +494,11 @@ the structural choices is in [`docs/decisions.md`](docs/decisions.md).
 - **BotBandit adapter** — parses `~/.botbandit/sessions/*.jsonl` event logs,
   including memory and compaction events as summary messages.
 
+- **Token usage & context-window stats** — `stats` captures per-session and aggregate token usage, the context-window limit, and peak/final context size across Claude, Codex, and BotBandit; `stats --global` reads Claude's `~/.claude/stats-cache.json` for lifetime per-model totals.
+
 **Next:**
 - **Gemini adapter** — the adapter guide uses Gemini as its worked example;
   implementing it would dogfood the guide and round out the big three agents.
-- **Usage tier** — read Claude's `~/.claude/stats-cache.json` for offline
-  token/cost estimates. Codex `token_count` events already cleanly skipped.
 
 ## Origin
 

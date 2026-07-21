@@ -59,13 +59,24 @@ export {
     redactPublishedSessionBundle,
     type RedactPublishedSessionBundleOptions,
 } from "./redact.js";
+export {
+    type ClaudeDailyActivity,
+    type ClaudeDailyModelTokens,
+    type ClaudeGlobalStats,
+    type ClaudeLongestSession,
+    type ClaudeModelUsage,
+    DEFAULT_CLAUDE_STATS_CACHE_PATH,
+    readClaudeStatsCache,
+} from "./stats-cache.js";
 export type {
     AgentName,
     Message,
     MessageMetadata,
     MessageRole,
+    MessageStats,
     RelatedSessionReference,
     Session,
+    SessionStats,
     ToolCall,
 } from "./types.js";
 

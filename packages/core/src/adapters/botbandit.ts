@@ -2,7 +2,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 
 import type { Adapter } from "../adapter.js";
-import type { Message, RelatedSessionReference, Session, ToolCall } from "../types.js";
+import { num } from "../num.js";
+import type { Message, RelatedSessionReference, Session, SessionStats, ToolCall } from "../types.js";
 
 /**
  * BotBandit stores one JSONL event log per session under
@@ -53,6 +54,20 @@ interface BotBanditEvent
     agent?: string;
     task?: string;
     result?: string;
+    /** AI SDK `usage` block on `turn_end` / `loop_end` events (per-turn tokens). */
+    usage?: BotBanditUsage;
+}
+
+/** BotBandit `turn_end`/`loop_end` `usage` block (AI SDK shape). */
+interface BotBanditUsage
+{
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    reasoningTokens?: number;
+    cachedInputTokens?: number;
+    inputTokenDetails?: { cacheReadTokens?: number };
+    outputTokenDetails?: { reasoningTokens?: number };
 }
 
 interface ProviderMessage
@@ -89,6 +104,14 @@ interface ParseContext
     callIndex: Map<string, ToolCall>;
     wrappedCodexSessionIds: Set<string>;
     subAgentTitles: Map<string, string>;
+    /** Accumulated per-session token totals from `turn_end`/`loop_end` usage blocks. */
+    usageTotals: { input: number; output: number; cached: number; reasoning: number };
+    /** Peak context size observed across turn usages. */
+    peakContextSize: number | null;
+    /** Last context size observed (becomes `finalContextSize`). */
+    lastContextSize: number | null;
+    /** Most recent assistant message, to attach per-turn usage to. */
+    lastAssistant: Message | null;
 }
 
 const CODEX_PROVIDER_ID = "@janole/ai-sdk-provider-codex-asp";
@@ -148,6 +171,10 @@ function parseBotBandit(filePath: string): Session
         callIndex: new Map(),
         wrappedCodexSessionIds: new Set(),
         subAgentTitles: new Map(),
+        usageTotals: { input: 0, output: 0, cached: 0, reasoning: 0 },
+        peakContextSize: null,
+        lastContextSize: null,
+        lastAssistant: null,
     };
 
     for (const event of parseLines(raw))
@@ -238,6 +265,18 @@ function processEvent(event: BotBanditEvent, ctx: ParseContext): void
             toolCalls: [],
             timestamp: event.timestamp ?? null,
         });
+        recordUsage(event, ctx);
+        return;
+    }
+
+    // `turn_end` carries the per-callModel usage; `loop_end.usage` is the
+    // accumulated sum of all steps in the loop (botbandit builds it via
+    // addLanguageModelUsage in agent-session.ts). Accumulating both would
+    // double-count every token and inflate peakContextSize with a multi-step
+    // aggregate, so only turn_end feeds the stats.
+    if (event.type === "turn_end")
+    {
+        recordUsage(event, ctx);
         return;
     }
 
@@ -352,7 +391,7 @@ function processProviderMessage(event: BotBanditEvent, ctx: ParseContext): void
                 if (tc) { ctx.callIndex.set(part.toolCallId, tc); }
             }
         }
-        if (text || toolCalls.length > 0) { ctx.messages.push(normalized); }
+        if (text || toolCalls.length > 0) { ctx.messages.push(normalized); ctx.lastAssistant = normalized; }
         return;
     }
 
@@ -628,8 +667,81 @@ function buildSession(filePath: string, ctx: ParseContext): Session
         model: ctx.model,
         messageCount: ctx.messages.length,
         messages: ctx.messages,
+        stats: buildBotBanditStats(ctx),
     };
 }
+
+/**
+ * Record per-turn token usage from a `turn_end` / `loop_end` event. Accumulates
+ * session totals, tracks peak/last context size, and attaches the per-turn
+ * {@link MessageStats} to the nearest preceding assistant message.
+ */
+function recordUsage(event: BotBanditEvent, ctx: ParseContext): void
+{
+    const usage = event.usage;
+    if (!usage || typeof usage !== "object") { return; }
+
+    // BotBandit (AI SDK / OpenAI convention): `inputTokens` includes cached and
+    // `outputTokens` includes reasoning. Normalize to fresh input / non-reasoning
+    // output to match the Claude convention used by SessionStats.
+    const rawInput = num(usage.inputTokens);
+    const rawOutput = num(usage.outputTokens);
+    const cached = num(usage.cachedInputTokens) || num(usage.inputTokenDetails?.cacheReadTokens);
+    const reasoning = num(usage.reasoningTokens) || num(usage.outputTokenDetails?.reasoningTokens);
+    const freshInput = Math.max(rawInput - cached, 0);
+    const nonReasoningOutput = Math.max(rawOutput - reasoning, 0);
+
+    ctx.usageTotals.input += freshInput;
+    ctx.usageTotals.output += nonReasoningOutput;
+    ctx.usageTotals.cached += cached;
+    ctx.usageTotals.reasoning += reasoning;
+
+    // The current context size is the prompt size for this turn = inputTokens
+    // (which already counts cached tokens). Falls back to totalTokens when the
+    // provider omits inputTokens.
+    const contextSize = rawInput > 0 ? rawInput : num(usage.totalTokens);
+    if (contextSize > 0)
+    {
+        ctx.lastContextSize = contextSize;
+        if (ctx.peakContextSize === null || contextSize > ctx.peakContextSize)
+        {
+            ctx.peakContextSize = contextSize;
+        }
+    }
+
+    if (ctx.lastAssistant && !ctx.lastAssistant.stats && (rawInput > 0 || rawOutput > 0))
+    {
+        ctx.lastAssistant.stats = {
+            inputTokens: freshInput,
+            outputTokens: nonReasoningOutput,
+            cachedInputTokens: cached,
+            reasoningTokens: reasoning,
+            contextSize: contextSize > 0 ? contextSize : null,
+        };
+    }
+}
+
+/** Build the aggregate {@link SessionStats} for a BotBandit session. */
+function buildBotBanditStats(ctx: ParseContext): SessionStats | undefined
+{
+    const t = ctx.usageTotals;
+    if (t.input === 0 && t.output === 0 && t.cached === 0 && t.reasoning === 0
+        && ctx.peakContextSize === null && ctx.lastContextSize === null)
+    {
+        return undefined;
+    }
+    return {
+        totalInputTokens: t.input,
+        totalOutputTokens: t.output,
+        cachedInputTokens: t.cached,
+        reasoningTokens: t.reasoning,
+        // BotBandit does not report the model's context-window limit on disk.
+        contextWindow: null,
+        finalContextSize: ctx.lastContextSize,
+        peakContextSize: ctx.peakContextSize,
+    };
+}
+
 
 export const botbanditAdapter: Adapter = {
     agent: "botbandit",

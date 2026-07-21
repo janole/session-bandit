@@ -45,7 +45,7 @@ Prefer the default machine-readable output when using Session Bandit as an
 agent tool:
 
 - `list` and `search` print JSON lines by default.
-- `extract`, `redact-check`, and `doctor` print JSON by default.
+- `extract`, `redact-check`, `stats`, and `doctor` print JSON by default.
 - `show` prints a human-readable transcript.
 
 Use `--pretty` only when a human-readable terminal view is useful for browsing
@@ -114,6 +114,25 @@ session-bandit doctor
 session-bandit doctor --agent codex
 session-bandit doctor --agent botbandit
 ```
+
+### Token usage and context-window stats
+
+```sh
+# Per-session token usage, context window, and per-turn breakdown (JSON)
+session-bandit stats 342647fa-5bf
+
+# Human-readable layout for reporting to the user
+session-bandit stats 342647fa-5bf --pretty
+
+# Aggregate usage across all sessions (Claude stats cache + summed per-session
+# totals from every adapter)
+session-bandit stats --global --pretty
+```
+
+`stats` reports total input/output/cache/reasoning tokens, the model's
+context-window limit (when known — Codex reports it), and peak/final context
+size, plus a per-turn breakdown. `--global` reports Claude's lifetime
+per-model totals, the longest session, and busiest hours.
 
 ### Check redaction before publishing
 
