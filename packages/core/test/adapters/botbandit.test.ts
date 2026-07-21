@@ -10,6 +10,7 @@ const simpleFile = join(fixtureRoot, "simple-session.jsonl");
 const toolFile = join(fixtureRoot, "tool-session.jsonl");
 const summaryFile = join(fixtureRoot, "summary-session.jsonl");
 const codexWrapperFile = join(fixtureRoot, "codex-wrapper-session.jsonl");
+const codexWrapperProviderOptionsFile = join(fixtureRoot, "codex-wrapper-provideroptions-session.jsonl");
 const noticeFile = join(fixtureRoot, "notice-session.jsonl");
 const multistepLoopFile = join(fixtureRoot, "multistep-loop-session.jsonl");
 
@@ -31,7 +32,7 @@ describe("botbanditAdapter.discover", () =>
     it("finds top-level .jsonl session files", () =>
     {
         const files = botbanditAdapter.discover(fixtureRoot);
-        expect(files).toHaveLength(6);
+        expect(files).toHaveLength(7);
         expect(files).toEqual([...files].sort());
         expect(files.some(file => file.endsWith("simple-session.jsonl"))).toBe(true);
     });
@@ -52,6 +53,30 @@ describe("botbanditAdapter.parse — notices", () =>
         expect(notice).toBeTruthy();
         expect(notice!.role).toBe("system");
         expect(notice!.text).toBe("[info] Auto-approved safe shell command by policy rule(s) bash(grep *).");
+    });
+});
+
+describe("botbanditAdapter.parse — wrapped Codex sessions via providerOptions", () =>
+{
+    // The codex provider moved its thread pointer from `providerMetadata` to
+    // `providerOptions`, and onto the reasoning part rather than the text part. Reading
+    // only the old location silently dropped the link on every current session.
+    let session!: Session;
+    beforeAll(() =>
+    {
+        session = botbanditAdapter.parse(codexWrapperProviderOptionsFile);
+    });
+
+    it("links the underlying codex thread", () =>
+    {
+        const summaries = session.messages.filter(message => message.subtype === "wrapped_codex");
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]!.text).toContain("019cf7d6-9c29-7331-b631-27b9313acfd6");
+        expect(summaries[0]!.metadata?.relatedSessions?.[0]).toMatchObject({
+            agent: "codex",
+            kind: "wrapped_codex",
+            sessionId: "019cf7d6-9c29-7331-b631-27b9313acfd6",
+        });
     });
 });
 

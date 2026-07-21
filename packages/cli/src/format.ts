@@ -769,6 +769,12 @@ export interface GlobalSessionTotals extends AgentTotals
 {
     /** One row per agent that contributed at least one session, in scan order. */
     byAgent: { agent: string; totals: AgentTotals }[];
+    /**
+     * Codex transcripts that a BotBandit session ran underneath — the same work, so they
+     * are excluded from every row above and from the combined total. Reported separately
+     * because the transcripts do exist and are worth being able to see.
+     */
+    wrappedCodex: AgentTotals;
 }
 
 /** An all-zero {@link AgentTotals}. */
@@ -796,14 +802,27 @@ function addSession(totals: AgentTotals, session: Session): void
     totals.reasoningTokens += session.stats.reasoningTokens;
 }
 
-/** Sum per-session stats across a list of sessions, both combined and per agent. */
-export function sumSessionTotals(sessions: Session[]): GlobalSessionTotals
+/**
+ * Sum per-session stats across a list of sessions, both combined and per agent.
+ *
+ * Codex sessions listed in `wrappedCodexIds` are the transcripts beneath BotBandit
+ * sessions in the same index. They are held out of the agent rows and the total so the
+ * same conversation is not counted twice, and reported on their own instead.
+ */
+export function sumSessionTotals(sessions: Session[], wrappedCodexIds: ReadonlySet<string> = new Set()): GlobalSessionTotals
 {
     const combined = emptyTotals();
+    const wrappedCodex = emptyTotals();
     const perAgent = new Map<string, AgentTotals>();
 
     for (const s of sessions)
     {
+        if (s.agent === "codex" && wrappedCodexIds.has(s.sessionId))
+        {
+            addSession(wrappedCodex, s);
+            continue;
+        }
+
         addSession(combined, s);
         let row = perAgent.get(s.agent);
         if (!row)
@@ -817,6 +836,7 @@ export function sumSessionTotals(sessions: Session[]): GlobalSessionTotals
     return {
         ...combined,
         byAgent: [...perAgent].map(([agent, totals]) => ({ agent, totals })),
+        wrappedCodex,
     };
 }
 
@@ -827,10 +847,25 @@ function printSessionTotalsBlock(sessionTotals: GlobalSessionTotals): void
 
     const rows = sessionTotals.byAgent
         .filter(r => r.totals.withStats > 0)
-        .map(r => ({ label: r.agent, totals: r.totals }));
+        .map(r => ({ label: r.agent, totals: r.totals, counted: true }));
 
-    // With a single agent the total row would just repeat the row above it.
-    if (rows.length > 1) { rows.push({ label: "total", totals: sessionTotals }); }
+    // Indented directly under botbandit, and never adjacent to `total`, so it reads as
+    // "what ran underneath" rather than as another addend.
+    const wrapped = sessionTotals.wrappedCodex;
+    if (wrapped.withStats > 0)
+    {
+        // Nested under botbandit it reads as "botbandit, via codex". Filtered to codex
+        // there is no parent row left, so name the parent instead of the child.
+        const at = rows.findIndex(r => r.label === "botbandit");
+        const label = at >= 0 ? "  └ via codex" : "  └ wrapped by botbandit";
+        rows.splice(at >= 0 ? at + 1 : rows.length, 0, { label, totals: wrapped, counted: false });
+    }
+
+    // With a single counted agent the total row would just repeat the row above it.
+    if (rows.filter(r => r.counted).length > 1)
+    {
+        rows.push({ label: "total", totals: sessionTotals, counted: true });
+    }
 
     const width = (pick: (t: AgentTotals) => number): number =>
         Math.max(...rows.map(r => fmt(pick(r.totals)).length));
@@ -850,6 +885,10 @@ function printSessionTotalsBlock(sessionTotals: GlobalSessionTotals): void
         );
     }
     console.log(`  cached ${fmt(sessionTotals.cachedInputTokens)}   reasoning ${fmt(sessionTotals.reasoningTokens)}`);
+    if (sessionTotals.wrappedCodex.withStats > 0)
+    {
+        console.log("  (└ = codex transcripts running under botbandit sessions — same work, not added to the total)");
+    }
     console.log("");
 }
 

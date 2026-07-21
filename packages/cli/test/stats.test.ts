@@ -70,6 +70,36 @@ function makeEmptySession(): Session
 
 const fakeScan: ScanFn = () => [makeStatsSession(), makeEmptySession()];
 
+/** A botbandit session that ran `codex-wrapped-0006` underneath it. */
+function makeWrappingBotBanditSession(): Session
+{
+    const base = makeStatsSession();
+    return {
+        ...base,
+        agent: "botbandit",
+        sessionId: "bb-wrapper-0007",
+        filePath: "/fake/bb-wrapper-0007.jsonl",
+        messages: [{
+            role: "summary",
+            subtype: "wrapped_codex",
+            text: "ran codex thread codex-wrapped-0006",
+            toolCalls: [],
+            timestamp: "2026-06-20T09:00:00.000Z",
+            metadata: {
+                relatedSessions: [{ agent: "codex", kind: "wrapped_codex", sessionId: "codex-wrapped-0006" }],
+            },
+        }],
+    };
+}
+
+/** The codex transcript sitting underneath {@link makeWrappingBotBanditSession}. */
+function makeWrappedCodexSession(): Session
+{
+    return { ...makeStatsSession(), sessionId: "codex-wrapped-0006", filePath: "/fake/codex-wrapped-0006.jsonl" };
+}
+
+const wrappingScan: ScanFn = () => [makeStatsSession(), makeWrappedCodexSession(), makeWrappingBotBanditSession()];
+
 const fakeGlobal: ClaudeGlobalStats = {
     version: 4,
     lastComputedDate: "2026-07-20",
@@ -261,6 +291,38 @@ describe("stats command --global", () =>
         expect(stdout).not.toContain("claude-opus-4-8");
         expect(stdout).not.toContain("Busiest hours");
         expect(stdout).toContain("Per-session totals");
+    });
+
+    it("holds codex transcripts wrapped by botbandit out of the total", () =>
+    {
+        const { stdout, exitCode } = runStats(["--global"], null, wrappingScan);
+        expect(exitCode).toBe(0);
+        const totals = JSON.parse(stdout).sessionTotals;
+        // Three sessions scanned, but the wrapped codex one is the same work as the
+        // botbandit session above it, so only two are counted.
+        expect(totals.withStats).toBe(2);
+        expect(totals.wrappedCodex.withStats).toBe(1);
+        expect(totals.wrappedCodex.totalInputTokens).toBe(72864);
+        // ...and it must not appear as a codex row either.
+        const codex = (totals.byAgent as { agent: string; totals: { withStats: number } }[]).find(r => r.agent === "codex");
+        expect(codex!.totals.withStats).toBe(1);
+    });
+
+    it("--pretty nests the wrapped codex row under botbandit", () =>
+    {
+        const { stdout } = runStats(["--global", "--pretty"], null, wrappingScan);
+        expect(stdout).toContain("└ via codex");
+        expect(stdout).toContain("not added to the total");
+        const lines = stdout.split("\n");
+        const bb = lines.findIndex(l => l.includes("botbandit"));
+        expect(lines[bb + 1]).toContain("└ via codex");
+    });
+
+    it("names the parent when the botbandit row is filtered away", () =>
+    {
+        const { stdout } = runStats(["--global", "--pretty", "--agent", "codex"], null, wrappingScan);
+        expect(stdout).toContain("└ wrapped by botbandit");
+        expect(stdout).not.toContain("└ via codex");
     });
 
     it("says so when scoped to claude but the cache is missing", () =>

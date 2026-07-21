@@ -310,12 +310,18 @@ Per turn
 
 ```
 Per-session totals (from transcripts on disk)
-  claude       100 sess   in   2,457,603   out 28,841,365
-  codex        991 sess   in 213,025,556   out  7,128,950
-  botbandit    667 sess   in 656,565,837   out  6,899,516
-  total      1,758 sess   in 872,048,996   out 42,869,831
-  cached 6,642,680,265   reasoning 4,549,618
+  claude           100 sess   in   2,457,734   out 28,904,729
+  codex            748 sess   in  93,171,236   out  2,846,545
+  botbandit        667 sess   in 656,565,837   out  6,899,516
+    └ via codex    243 sess   in 119,854,320   out  4,282,405
+  total          1,515 sess   in 752,194,807   out 38,650,790
+  cached 4,909,014,405   reasoning 2,544,235
+  (└ = codex transcripts running under botbandit sessions — same work, not added to the total)
 ```
+
+BotBandit can drive codex as its provider, so those conversations exist twice on
+disk — once as the BotBandit session you ran, once as the codex transcript beneath
+it. The `└` row shows the latter without adding it to the total.
 
 `stats --global --pretty --agent claude` additionally layers in Claude's own
 lifetime cache, which is Claude-only and counts sessions whose transcripts have

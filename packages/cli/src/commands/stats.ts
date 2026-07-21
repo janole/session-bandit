@@ -3,7 +3,7 @@ import { Command } from "commander";
 
 import { type ClaudeSection, printGlobalStatsJson, printGlobalStatsPretty, printSessionStatsJson, printSessionStatsPretty, sumSessionTotals } from "../format.js";
 import { resolveSession } from "../resolve.js";
-import { filterSessions, isValidAgent, type ScanFn } from "../scan.js";
+import { collectWrappedCodexIds, filterSessions, isValidAgent, type ScanFn } from "../scan.js";
 
 /** A function that returns the Claude global aggregate stats (or null if unavailable). */
 export type GlobalStatsFn = () => ClaudeGlobalStats | null;
@@ -68,8 +68,11 @@ interface StatsOptions
 function printGlobal(scanFn: ScanFn, opts: StatsOptions, getGlobalStats: GlobalStatsFn): void
 {
     const sessions = scanFn();
+    // Resolve wrapping against the unfiltered index: an `--agent codex` view has no
+    // BotBandit sessions left to learn which codex transcripts sit underneath one.
+    const wrappedCodexIds = collectWrappedCodexIds(sessions);
     const filtered = filterSessions(sessions, { agent: opts.agent });
-    const totals = sumSessionTotals(filtered);
+    const totals = sumSessionTotals(filtered, wrappedCodexIds);
 
     // Claude's cache covers Claude alone, so it only belongs in a Claude-scoped view.
     // Mixing its lifetime counts into the all-agent default put two different scopes

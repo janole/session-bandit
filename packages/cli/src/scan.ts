@@ -1,4 +1,4 @@
-import { type AdapterConfig, type AgentName, botbanditAdapter, claudeAdapter, codexAdapter, computeSubstance, type ImportanceTier, indexSessions, type Session, tierRank } from "@session-bandit/core";
+import { type AdapterConfig, type AgentName, botbanditAdapter, claudeAdapter, codexAdapter, computeSubstance, extractRelatedSessions, type ImportanceTier, indexSessions, type Session, tierRank } from "@session-bandit/core";
 
 /** All adapters v1 knows about, in display order. */
 const ADAPTERS: AdapterConfig[] = [
@@ -97,6 +97,31 @@ export function inTimeWindow(
     if (opts.since && ms < opts.since.getTime()) { return false; }
     if (opts.until && ms > opts.until.getTime()) { return false; }
     return true;
+}
+
+/**
+ * Collect the ids of codex sessions that a BotBandit session ran underneath.
+ *
+ * BotBandit can drive codex as its provider, in which case the same conversation exists
+ * twice on disk: once as the BotBandit session the user actually ran, and once as the
+ * codex transcript beneath it. Aggregates must know which codex sessions those are, or
+ * they count the same work twice.
+ *
+ * Derive this from the **unfiltered** index — a `--agent codex` view has no BotBandit
+ * sessions left to learn it from.
+ */
+export function collectWrappedCodexIds(sessions: Session[]): Set<string>
+{
+    const wrapped = new Set<string>();
+    for (const session of sessions)
+    {
+        if (session.agent !== "botbandit") { continue; }
+        for (const related of extractRelatedSessions(session))
+        {
+            if (related.kind === "wrapped_codex") { wrapped.add(related.sessionId); }
+        }
+    }
+    return wrapped;
 }
 
 /** Filter sessions by agent and/or project (substring match on project/cwd). */
