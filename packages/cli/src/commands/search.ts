@@ -1,7 +1,7 @@
 import { Command } from "commander";
 
 import { printSearchJson, printSearchPretty, type SearchHit } from "../format.js";
-import { filterSessions, inTimeWindow, isValidAgent, parseTimeArg, type ScanFn } from "../scan.js";
+import { collectCondensedWrapperIds, filterSessions, inTimeWindow, isValidAgent, parseTimeArg, type ScanFn } from "../scan.js";
 
 export function makeSearchCommand(scanFn: ScanFn): Command 
 {
@@ -51,11 +51,19 @@ export function makeSearchCommand(scanFn: ScanFn): Command
             }
             const timeWindow = { since, until };
 
-            let sessions = scanFn();
+            let sessions = scanFn(query);
+            // Resolve condensed wrappers against the unfiltered index: a BotBandit
+            // session that wraps a Codex original is a condensed duplicate, so search
+            // surfaces the full Codex transcript instead. `list` still shows both.
+            const condensedWrappers = collectCondensedWrapperIds(sessions);
             sessions = filterSessions(sessions, {
                 agent: opts.agent,
                 project: opts.project,
             });
+            if (condensedWrappers.size > 0)
+            {
+                sessions = sessions.filter((s) => !condensedWrappers.has(s.sessionId));
+            }
 
             const q = query.toLowerCase();
             const hits: SearchHit[] = [];
@@ -64,7 +72,10 @@ export function makeSearchCommand(scanFn: ScanFn): Command
                 for (let i = 0; i < s.messages.length; i++) 
                 {
                     const msg = s.messages[i]!;
-                    if (msg.text.toLowerCase().includes(q) && inTimeWindow(msg.timestamp, timeWindow)) 
+                    if (!inTimeWindow(msg.timestamp, timeWindow)) { continue; }
+
+                    // Match on message text
+                    if (msg.text.toLowerCase().includes(q)) 
                     {
                         hits.push({
                             agent: s.agent,
@@ -73,6 +84,27 @@ export function makeSearchCommand(scanFn: ScanFn): Command
                             role: msg.role,
                             text: msg.text,
                             timestamp: msg.timestamp,
+                        });
+                    }
+
+                    // Match on tool call input/output. Tool outputs can be large,
+                    // so the hit text is a snippet centered on the match.
+                    for (const tc of msg.toolCalls) 
+                    {
+                        const inputText = toolCallInputText(tc.input);
+                        const outputText = tc.output ?? "";
+                        const inMatch = inputText.toLowerCase().includes(q);
+                        const outMatch = outputText.toLowerCase().includes(q);
+                        if (!inMatch && !outMatch) { continue; }
+                        const matchText = outMatch ? outputText : inputText;
+                        hits.push({
+                            agent: s.agent,
+                            sessionId: s.sessionId,
+                            messageIndex: i + 1,
+                            role: msg.role,
+                            text: snippetAround(matchText, q, 500),
+                            timestamp: msg.timestamp,
+                            toolCall: tc.name,
                         });
                     }
                 }
@@ -96,4 +128,41 @@ interface SearchOptions {
     since?: string;
     until?: string;
     pretty?: boolean;
+}
+
+/** Stringify a tool call's input for search (object → JSON, string → as-is). */
+function toolCallInputText(input: unknown): string 
+{
+    if (input == null) { return ""; }
+    if (typeof input === "string") { return input; }
+    try 
+    {
+        return JSON.stringify(input);
+    }
+    catch 
+    {
+        return String(input);
+    }
+}
+
+/** Truncate `text` to `max` chars, appending an ellipsis if cut. */
+function truncate(text: string, max: number): string 
+{
+    if (text.length <= max) { return text; }
+    return text.slice(0, max - 1) + "…";
+}
+
+/** Return a snippet of `text` centered on the first match of `query`. */
+function snippetAround(text: string, query: string, max: number): string 
+{
+    if (text.length <= max) { return text; }
+    const idx = text.toLowerCase().indexOf(query);
+    if (idx === -1) { return truncate(text, max); }
+    const half = Math.floor((max - 1) / 2);
+    const start = Math.max(0, idx - half);
+    const end = Math.min(text.length, start + max);
+    let snippet = text.slice(start, end);
+    if (start > 0) { snippet = "…" + snippet; }
+    if (end < text.length) { snippet = snippet + "…"; }
+    return snippet;
 }

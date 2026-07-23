@@ -192,6 +192,8 @@ export interface SearchHit
     role: string;
     text: string;
     timestamp: string | null;
+    /** Tool name when the match is in a tool call's input/output, not message text. */
+    toolCall?: string;
 }
 
 /** Print search hits as JSON lines. */
@@ -213,8 +215,9 @@ export function printSearchPretty(hits: SearchHit[]): void
     }
     for (const h of hits) 
     {
+        const where = h.toolCall ? `${h.role} · ${h.toolCall}` : h.role;
         console.log(
-            `[${h.agent}] ${h.sessionId.slice(0, 12)}  #${h.messageIndex}  ${h.role}`,
+            `[${h.agent}] ${h.sessionId.slice(0, 12)}  #${h.messageIndex}  ${where}`,
         );
         console.log(`  ${truncate(h.text, 120)}`);
         console.log("");

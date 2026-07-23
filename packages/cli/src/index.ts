@@ -12,14 +12,14 @@ import { makeRedactCheckCommand } from "./commands/redact-check.js";
 import { makeSearchCommand } from "./commands/search.js";
 import { makeShowCommand } from "./commands/show.js";
 import { makeStatsCommand } from "./commands/stats.js";
-import { scanAll } from "./scan.js";
+import { scanAll, scanForSearch } from "./scan.js";
 
 const packageJsonPath = join(dirname(fileURLToPath(import.meta.url)), "../package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as { version?: string };
 const VERSION = packageJson.version ?? "0.0.0";
 
 // Re-export core for programmatic use.
-export { filterByMinImportance, filterByTime, filterSessions, inTimeWindow, parseTimeArg, scanAll, type ScanFn,sortByImportance, sortByRecent } from "./scan.js";
+export { filterByMinImportance, filterByTime, filterSessions, inTimeWindow, parseTimeArg, scanAll, type ScanFn,scanForSearch, sortByImportance, sortByRecent } from "./scan.js";
 export {
     type AdapterConfig,
     type AgentName,
@@ -50,7 +50,7 @@ export function createProgram(): Command
 
     program.addCommand(makeListCommand(scanAll));
     program.addCommand(makeShowCommand(scanAll));
-    program.addCommand(makeSearchCommand(scanAll));
+    program.addCommand(makeSearchCommand(scanForSearch));
     program.addCommand(makeExtractCommand(scanAll));
     program.addCommand(makeRedactCheckCommand(scanAll));
     program.addCommand(makeExportMdCommand(scanAll));

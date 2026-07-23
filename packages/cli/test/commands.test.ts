@@ -110,6 +110,7 @@ const fakeScan: ScanFn = () => [...fixtures];
 function runCommand(
     makeCmd: (scanFn: ScanFn) => Command,
     args: string[],
+    scanFn: ScanFn = fakeScan,
 ): { stdout: string; stderr: string; exitCode: number } 
 {
     const stdoutArr: string[] = [];
@@ -124,7 +125,7 @@ function runCommand(
     {
     // Use the command directly as the program so args are parsed as the
     // command's own options/arguments (not as a subcommand name).
-        const cmd = makeCmd(fakeScan);
+        const cmd = makeCmd(scanFn);
         cmd.exitOverride();
         cmd.parse(["node", "test", ...args]);
     }
@@ -440,6 +441,177 @@ describe("search command", () =>
         expect(hit.sessionId).toBe("codex-bbbb-0002");
         expect(hit.messageIndex).toBe(1);
         expect(hit.role).toBe("user");
+    });
+
+    it("finds matches in tool call output", () => 
+    {
+        // The Bash tool call in claude-aaaa-0001 has output "export function parse() {}"
+        const { stdout, exitCode } = runCommand(makeSearchCommand, ["export function parse"]);
+        expect(exitCode).toBe(0);
+        const lines = stdout.split("\n").filter(Boolean);
+        expect(lines).toHaveLength(1);
+        const hit = JSON.parse(lines[0]!);
+        expect(hit.agent).toBe("claude");
+        expect(hit.sessionId).toBe("claude-aaaa-0001");
+        expect(hit.toolCall).toBe("Bash");
+        expect(hit.text.toLowerCase()).toContain("export function parse");
+    });
+
+    it("finds matches in tool call input", () => 
+    {
+        // The Bash input { command: "cat src/parser.ts" } and the Edit input
+        // { file_path: ".../src/parser.ts" } both contain "src/parser.ts".
+        const { stdout, exitCode } = runCommand(makeSearchCommand, ["src/parser.ts"]);
+        expect(exitCode).toBe(0);
+        const lines = stdout.split("\n").filter(Boolean);
+        expect(lines).toHaveLength(2);
+        for (const l of lines)
+        {
+            const hit = JSON.parse(l);
+            expect(hit.toolCall).toBeOneOf(["Bash", "Edit"]);
+            expect(hit.text).toContain("src/parser.ts");
+        }
+    });
+
+    it("tool call hit text is a snippet centered on the match", () => 
+    {
+        // A long output with the match near the end should be snipped around it.
+        const longOutput = "x".repeat(2000) + " clone-to-supabase-com " + "y".repeat(200);
+        const session = makeSession({
+            agent: "codex",
+            sessionId: "codex-tool-out-0004",
+            messages: [
+                {
+                    role: "assistant",
+                    text: "",
+                    toolCalls: [
+                        {
+                            name: "shell",
+                            input: { command: "ls" },
+                            status: "ok",
+                            output: longOutput,
+                        },
+                    ],
+                    timestamp: "2026-06-20T10:00:00.000Z",
+                },
+            ],
+            messageCount: 1,
+        });
+        const { stdout } = runCommand(makeSearchCommand, ["clone-to-supabase-com"], () => [session]);
+        const lines = stdout.split("\n").filter(Boolean);
+        expect(lines).toHaveLength(1);
+        const hit = JSON.parse(lines[0]!);
+        expect(hit.toolCall).toBe("shell");
+        // The snippet must contain the query, even though it's deep in a long output.
+        expect(hit.text.toLowerCase()).toContain("clone-to-supabase-com");
+        // And it must be a snippet, not the full 2200-char output.
+        expect(hit.text.length).toBeLessThan(longOutput.length);
+        expect(hit.text.startsWith("…")).toBe(true);
+    });
+
+    it("excludes condensed BotBandit wrappers when the Codex original is present", () =>
+    {
+        // A BotBandit session that wraps a Codex session is a condensed duplicate.
+        // When both are in the index, search should surface the Codex original only.
+        const codexOriginal = makeSession({
+            agent: "codex",
+            sessionId: "codex-wrapped-0005",
+            project: "/Users/ole/projekte/demo",
+            cwd: "/Users/ole/projekte/demo",
+            startedAt: "2026-06-20T10:00:00.000Z",
+            messages: [
+                {
+                    role: "user",
+                    text: "run the clone-to-supabase-com script",
+                    toolCalls: [],
+                    timestamp: "2026-06-20T10:00:00.000Z",
+                },
+            ],
+            messageCount: 1,
+        });
+        const botbanditWrapper = makeSession({
+            agent: "botbandit",
+            sessionId: "botbandit-wrapper-0006",
+            project: "/Users/ole/projekte/demo",
+            cwd: "/Users/ole/projekte/demo",
+            startedAt: "2026-06-20T11:00:00.000Z",
+            messages: [
+                {
+                    role: "summary",
+                    subtype: "wrapped_codex",
+                    text: "Original Codex session: codex-wrapped-0005",
+                    toolCalls: [],
+                    timestamp: "2026-06-20T11:00:00.000Z",
+                    metadata: {
+                        relatedSessions: [
+                            { agent: "codex", kind: "wrapped_codex", sessionId: "codex-wrapped-0005" },
+                        ],
+                    },
+                },
+                {
+                    role: "user",
+                    text: "run the clone-to-supabase-com script",
+                    toolCalls: [],
+                    timestamp: "2026-06-20T11:00:05.000Z",
+                },
+            ],
+            messageCount: 2,
+        });
+        const { stdout } = runCommand(
+            makeSearchCommand,
+            ["clone-to-supabase-com"],
+            () => [...fixtures, codexOriginal, botbanditWrapper],
+        );
+        const lines = stdout.split("\n").filter(Boolean);
+        // Only the Codex original; the condensed BotBandit wrapper is excluded.
+        expect(lines).toHaveLength(1);
+        const hit = JSON.parse(lines[0]!);
+        expect(hit.agent).toBe("codex");
+        expect(hit.sessionId).toBe("codex-wrapped-0005");
+    });
+
+    it("keeps the BotBandit wrapper when the Codex original is absent", () =>
+    {
+        // If the Codex original is not in the index, the wrapper is the only copy.
+        const botbanditWrapper = makeSession({
+            agent: "botbandit",
+            sessionId: "botbandit-orphan-0007",
+            project: "/Users/ole/projekte/demo",
+            cwd: "/Users/ole/projekte/demo",
+            startedAt: "2026-06-20T11:00:00.000Z",
+            messages: [
+                {
+                    role: "summary",
+                    subtype: "wrapped_codex",
+                    text: "Original Codex session: codex-missing-0008",
+                    toolCalls: [],
+                    timestamp: "2026-06-20T11:00:00.000Z",
+                    metadata: {
+                        relatedSessions: [
+                            { agent: "codex", kind: "wrapped_codex", sessionId: "codex-missing-0008" },
+                        ],
+                    },
+                },
+                {
+                    role: "user",
+                    text: "run the clone-to-supabase-com script",
+                    toolCalls: [],
+                    timestamp: "2026-06-20T11:00:05.000Z",
+                },
+            ],
+            messageCount: 2,
+        });
+        const { stdout } = runCommand(
+            makeSearchCommand,
+            ["clone-to-supabase-com"],
+            () => [...fixtures, botbanditWrapper],
+        );
+        const lines = stdout.split("\n").filter(Boolean);
+        // The wrapper is kept because the Codex original is not in the index.
+        expect(lines).toHaveLength(1);
+        const hit = JSON.parse(lines[0]!);
+        expect(hit.agent).toBe("botbandit");
+        expect(hit.sessionId).toBe("botbandit-orphan-0007");
     });
 
     it("--agent filter applies to search", () => 
