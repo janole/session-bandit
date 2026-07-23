@@ -1,6 +1,6 @@
 {
   "name": "session-bandit",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Search, browse, and extract information from your coding agent sessions (Claude Code, Codex).",
   "license": "MIT",
   "author": "Jan Ole Suhr",
