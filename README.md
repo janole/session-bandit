@@ -14,8 +14,10 @@ ever done with every agent.
   recent first, with filters by agent, project, and time period.
 - **Full transcripts** — read any session's normalized transcript with tool
   calls, inputs, outputs, and status indicators.
-- **Full-text search** across all session messages, with agent, project, and
-  time-period filters.
+- **Full-text search** across all session messages *and tool calls* (inputs
+  and outputs), with agent, project, and time-period filters. Uses ripgrep as a
+  fast pre-filter when available, and skips condensed BotBandit wrappers whose
+  full Codex original is in the index.
 - **Agent recaps, compactions, and memories captured** — Claude's
   while-you-were-away recaps, Codex's context-window compactions, and
   BotBandit's memory/compaction events are carried as `summary` messages and
@@ -110,7 +112,7 @@ session-bandit list --project botbandit
 # Show the full transcript of a session (accepts ID prefix)
 session-bandit show 342647fa-5bf
 
-# Full-text search across all session messages
+# Full-text search across session messages and tool-call input/output
 session-bandit search "tool approval" --pretty
 
 # Search within a specific agent

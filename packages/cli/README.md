@@ -98,7 +98,12 @@ session-bandit show 342647fa-5bf --agent claude
 
 ### `search`
 
-Search message text across sessions.
+Search message text **and tool-call input/output** across sessions. Hits in
+tool calls carry a `toolCall` field with the tool name and a snippet centered on
+the match. When ripgrep is installed it pre-filters candidate files for speed;
+otherwise the full index is scanned. Condensed BotBandit wrappers are skipped
+when their full Codex original is in the index, so the same conversation is not
+returned twice.
 
 ```sh
 session-bandit search "adapter" --pretty

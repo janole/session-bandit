@@ -87,6 +87,11 @@ session-bandit show 342647fa --agent claude
 
 ### Search across sessions
 
+Search covers message text **and tool-call input/output** (shell outputs, file
+reads, command arguments). Hits inside a tool call carry a `toolCall` field.
+ripgrep pre-filters candidate files when available; condensed BotBandit wrappers
+are skipped when their full Codex original is in the index.
+
 ```sh
 session-bandit search "tool approval"
 session-bandit search "apply_patch" --agent codex
