@@ -184,12 +184,15 @@ isn't valid JSON.
 ### Tool outputs
 
 ```ts
-{ type: "function_call_output" | "custom_tool_call_output", call_id: string, output: string }
+{ type: "function_call_output" | "custom_tool_call_output", call_id: string, output: string | array | object }
 ```
 
 Matched to the originating tool call by `call_id` (a `Map<call_id, ToolCall>`).
-The `output` field is itself a **JSON string** that the adapter does not parse
+The `output` field is usually a **JSON string** that the adapter does not parse
 into `Message.text`, but it *does* peek inside for status inference (below).
+Malformed or custom-tool shapes can emit an array/object instead (e.g. a
+content-block array `[{"type":"input_text","text":"..."}]`); the adapter
+stringifies those so `ToolCall.output` always honors its `string | null` type.
 
 ## The status quirk (important)
 
