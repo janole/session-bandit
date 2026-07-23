@@ -303,7 +303,7 @@ function processItem(item: Item, ts: string | null, ctx: ParseContext): void
             const tc = ctx.callIndex.get(call_id);
             if (tc) 
             {
-                tc.output = item.output ?? null;
+                tc.output = stringifyOutput(item.output);
                 // The output is the ground truth for status. A `completed` tool call
                 // can still produce a non-zero exit code, so always infer from output
                 // when an exit_code is present; otherwise keep the item's status.
@@ -321,12 +321,14 @@ function processItem(item: Item, ts: string | null, ctx: ParseContext): void
 }
 
 /** Best-effort status inference from a Codex tool output string. */
-function inferStatusFromOutput(output: string | undefined): "ok" | "error" | "unknown" 
+function inferStatusFromOutput(output: unknown): "ok" | "error" | "unknown" 
 {
     if (!output) {return "unknown";}
+    const text = typeof output === "string" ? output : stringifyOutput(output);
+    if (!text) {return "unknown";}
     try 
     {
-        const parsed = JSON.parse(output);
+        const parsed = JSON.parse(text);
         const exitCode = parsed?.metadata?.exit_code;
         if (typeof exitCode === "number") 
         {
@@ -338,6 +340,25 @@ function inferStatusFromOutput(output: string | undefined): "ok" | "error" | "un
     // not JSON — treat as ok (the output exists)
     }
     return "ok";
+}
+
+/** Coerce a Codex tool output into the `string | null` contract.
+ *
+ * Codex `function_call_output` / `custom_tool_call_output` usually carry a string,
+ * but malformed or custom-tool shapes can emit arrays/objects (e.g. a content-block
+ * array). Stringify those so `ToolCall.output` always honors its `string | null` type. */
+function stringifyOutput(output: unknown): string | null
+{
+    if (output === undefined || output === null) {return null;}
+    if (typeof output === "string") {return output;}
+    try
+    {
+        return JSON.stringify(output);
+    }
+    catch
+    {
+        return String(output);
+    }
 }
 
 // ---- format detection + parsing --------------------------------------------
